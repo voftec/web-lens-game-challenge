@@ -664,4 +664,152 @@ server.tool(
   }
 );
 
+// --- gameplay session ----------------------------------------------------
+// A live game session: headed browser recording video while an agent (or
+// Diego, in the same window) plays. Loop: screenshot -> reason -> tap.
+let game = null; // { ctx, page, browser, vidDir, errors, server }
+
+server.tool(
+  "gameplay_start",
+  "Start a live gameplay session: serves a build dir, opens a 720x1280 touch viewport (headed by default so Diego can also play in the window), and starts recording video. Use gameplay_screenshot/tap/swipe to play, gameplay_stop to get the mp4.",
+  {
+    dir: z.string().describe("Build dir containing index.html"),
+    headed: z.boolean().default(true).describe("Show the window so a human can play too"),
+  },
+  async ({ dir, headed }) => {
+    if (!existsSync(join(dir, "index.html"))) return txt(`ERROR: no index.html in ${dir}`);
+    if (game) await gameplay_teardown();
+    if (staticServer) await new Promise((r) => staticServer.close(r));
+    const port = 8471;
+    staticServer = createServer((req, res) => {
+      const p = join(dir, decodeURIComponent(req.url.split("?")[0]).replace(/^\/+/, "") || "index.html");
+      const file = existsSync(p) && statSync(p).isFile() ? p : join(dir, "index.html");
+      res.setHeader("Content-Type", MIME[extname(file)] ?? "application/octet-stream");
+      createReadStream(file).pipe(res);
+    });
+    await new Promise((r) => staticServer.listen(port, r));
+    const vidDir = join(HERE, "shots", `game-${Date.now()}`);
+    const errors = [];
+    const browser = await chromium.launch({ headless: !headed });
+    const ctx = await browser.newContext({
+      viewport: { width: 720, height: 1280 },
+      recordVideo: { dir: vidDir, size: { width: 720, height: 1280 } },
+      hasTouch: true, isMobile: true,
+    });
+    const page = await ctx.newPage();
+    page.on("pageerror", e => errors.push("PAGEERROR: " + e.message));
+    page.on("console", m => { if (m.type() === "error") errors.push("CONSOLE: " + m.text()); });
+    await page.goto(`http://localhost:${port}/`, { waitUntil: "load" });
+    game = { ctx, browser, page, vidDir, errors };
+    const shot = join(vidDir, "frame.png");
+    await page.waitForTimeout(4000);
+    await page.screenshot({ path: shot }).catch(() => {});
+    return txt(`gameplay session live at http://localhost:${port}/ — window ${headed ? "open (you can play manually, it is being recorded)" : "headless"}. First frame: ${shot}`);
+  }
+);
+
+async function gameplay_need() {
+  if (!game) throw new Error("no gameplay session — call gameplay_start first");
+  return game;
+}
+
+async function gameplay_teardown() {
+  if (!game) return;
+  await game.ctx.close().catch(() => {});
+  await game.browser.close().catch(() => {});
+  game = null;
+}
+
+server.tool(
+  "gameplay_screenshot",
+  "Screenshot the current game frame. Returns the image path (read it to see the game) plus any page errors so far. Use in a loop to understand the game state before acting.",
+  {},
+  async () => {
+    const g = await gameplay_need();
+    const shot = join(g.vidDir, `frame-${Date.now()}.png`);
+    await g.page.screenshot({ path: shot });
+    return txt(JSON.stringify({ frame: shot, errors: g.errors.slice(-10) }, null, 2));
+  }
+);
+
+server.tool(
+  "gameplay_eval",
+  "Evaluate JS in the game page (e.g. read game state objects, click DOM buttons by text, inspect HUD). Returns JSON of the expression result.",
+  { expression: z.string().describe("JS to evaluate, e.g. 'window.game?.state' or \"[...document.querySelectorAll('button')].map(b=>b.innerText)\"") },
+  async ({ expression }) => {
+    const g = await gameplay_need();
+    try {
+      const v = await g.page.evaluate(expression);
+      return txt(JSON.stringify(v)?.slice(0, 4000) ?? "undefined");
+    } catch (e) { return txt(`EVAL ERROR: ${e.message}`); }
+  }
+);
+
+server.tool(
+  "gameplay_tap",
+  "Tap the game at (x,y) in the 720x1280 viewport.",
+  { x: z.number(), y: z.number() },
+  async ({ x, y }) => {
+    const g = await gameplay_need();
+    await g.page.touchscreen.tap(x, y);
+    return txt(`tapped ${x},${y}`);
+  }
+);
+
+server.tool(
+  "gameplay_swipe",
+  "Swipe/drag from (x1,y1) to (x2,y2) over ms milliseconds.",
+  { x1: z.number(), y1: z.number(), x2: z.number(), y2: z.number(), ms: z.number().default(300) },
+  async ({ x1, y1, x2, y2, ms }) => {
+    const g = await gameplay_need();
+    await g.page.touchscreen.tap(x1, y1); // ensure touch context
+    await g.page.mouse.move(x1, y1);
+    await g.page.mouse.down();
+    await g.page.mouse.move(x2, y2, { steps: 10 });
+    await g.page.mouse.up();
+    return txt(`swiped ${x1},${y1} -> ${x2},${y2} in ${ms}ms`);
+  }
+);
+
+server.tool(
+  "gameplay_wait",
+  "Wait ms (let the game run), then return a fresh frame path. Use between actions.",
+  { ms: z.number().default(1000) },
+  async ({ ms }) => {
+    const g = await gameplay_need();
+    await g.page.waitForTimeout(ms);
+    const shot = join(g.vidDir, `frame-${Date.now()}.png`);
+    await g.page.screenshot({ path: shot }).catch(() => {});
+    return txt(shot);
+  }
+);
+
+server.tool(
+  "gameplay_stop",
+  "Stop the gameplay session and encode the recorded video to Snap preview spec (720x1280, H.264+AAC, faststart, <=10s). Returns the mp4 path and any errors captured during the session.",
+  {
+    outPath: z.string(),
+    trimStartSec: z.number().default(0).describe("Skip this many seconds at the start (e.g. skip menu, keep the action)"),
+    lengthSec: z.number().default(8).describe("Preview length, 5-10s"),
+  },
+  async ({ outPath, trimStartSec, lengthSec }) => {
+    const g = await gameplay_need();
+    const vidDir = g.vidDir, errors = g.errors;
+    await gameplay_teardown();
+    const { readdirSync } = await import("node:fs");
+    const webm = readdirSync(vidDir).find(f => f.endsWith(".webm"));
+    if (!webm) return txt("ERROR: no video captured");
+    const enc = spawnSync("ffmpeg", ["-y", "-i", join(vidDir, webm),
+      "-ss", String(trimStartSec), "-t", String(Math.min(lengthSec, 10)),
+      "-vf", "scale=720:1280,fps=30", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+      "-movflags", "+faststart", "-c:a", "aac", "-shortest", outPath], { encoding: "utf8" });
+    if (enc.status !== 0) return txt(`ffmpeg failed: ${enc.stderr?.slice(-800)}`);
+    return txt(JSON.stringify({
+      preview: outPath, sizeMB: +(statSync(outPath).size / 1048576).toFixed(2),
+      sessionErrors: errors.length ? errors : "none",
+      frames: `${vidDir}/frame-*.png`,
+    }, null, 2));
+  }
+);
+
 await server.connect(new StdioServerTransport());
