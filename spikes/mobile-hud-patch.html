@@ -16,7 +16,7 @@
   .fr-dollar-emblem { width: 30px !important; height: 34px !important; }
   .fr-heart-icon { width: 36px !important; height: 34px !important; }
   .fr-score-value { font-size: 24px !important; }
-  .fr-round-label { font-size: 20px !important; }
+  .fr-round-label { font-size: 20px !important; order: -1; }
   .fr-wave-progress-wrap { width: 100px !important; }
   .fr-tower-dock {
     left: 50% !important; right: auto !important;
@@ -37,9 +37,11 @@
   .fr-achievement-toast { width: 220px !important; }
   .fr-radial-menu, .fr-radial-ring { transform-origin: center; }
   .fr-dock-tooltip {
-    right: auto !important; left: 50% !important;
+    right: 0 !important; left: 0 !important;
+    margin-inline: auto;
+    width: fit-content;
     bottom: calc(352px + env(safe-area-inset-bottom, 0px)) !important;
-    transform: translateX(-50%) scale(0.85);
+    transform: scale(0.85);
     transform-origin: bottom center;
     max-width: 320px;
   }
