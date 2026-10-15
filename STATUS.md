@@ -75,3 +75,31 @@
 - `mylenses_status`: Lens ID + status + visibilidad desde la página del Lens,
   buscando el lens en todos los folders si no se pasa `folderName`.
 - Helpers internos: `openSubmitFlow` y `fillAndSubmit` compartidos.
+
+## Update — Resubmit v2 + gameplay MCP (15 oct 2026)
+
+- **Resubmit enviado**: `Argon Towers Test` actualizado a v2 (~12:03 PM),
+  estado `Processing`. Zip `argon-towers-lens-v2.zip` (5.6MB, fix audio +
+  viewport-fit) + preview `preview-real.mp4` (gameplay REAL grabado, no
+  generado — distinción clave pedida por Diego). Checklist del portal todo
+  Ready antes de Update.
+- Flujo de update real (selectores): radio Update → `input[role=combobox]` →
+  `.ant-select-item-option-content` (Ant Design select) → click nombre del
+  lens → form "Updating <name> Lens". Si la versión previa falló, el update
+  EXIGE zip nuevo. Video se reemplaza con "Change Lens Preview" + Apply.
+  Script reusable: `tools/mylenses-mcp/scripts-update-final.mjs`.
+- **Gameplay MCP** (`gameplay_*` en index.js): sesión persistente headed que
+  sirve el build, viewport 720x1280 táctil, `recordVideo` grabando TODO el
+  tiempo; tools: `gameplay_start` / `gameplay_screenshot` / `gameplay_eval`
+  / `gameplay_tap` / `gameplay_swipe` / `gameplay_wait` / `gameplay_stop`
+  (encodea mp4 H.264+AAC 30fps faststart, ≤10s, reporta errores de página).
+  Soporta también modo humano: Diego juega en la ventana mientras graba.
+- Demo real: agente detectó controles (`START WAVE`, torres $5/$10/$20/$75),
+  colocó 2 torres, lanzó wave → `spikes/argon-towers-v2/preview-real.mp4`
+  (10s, 720x1280, faststart, 0 errores). Demo: `scripts-gameplay-demo.mjs`.
+- Email a Snap Support enviado desde diego.usdz@gmail (draft nativo Mail.app,
+  CC diego.aguirre8@icloud.com) → ticket **#277151774**. Gmail API oauth.sh
+  quedó listo pero Google bloquea scopes sensibles con el client genérico de
+  gcloud — requeriría OAuth client propio en GCP; fallback mailto funciona.
+- Pendiente: resultado de la review v2 (¿el audio era la causa?) + respuesta
+  del ticket con logs reales.
