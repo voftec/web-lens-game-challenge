@@ -38,6 +38,7 @@ El usuario es **Diego**. Siempre dirigirse a él por su nombre y en español.
 | `visual-critic` | `gemini` (Argon) | Crítico adversarial: inspecciona screenshots del build vía Playwright, puntúa /10 por rúbrica, exige ≥9/10. Read-only sobre el código. | read + playwright + exec |
 | `qa-playtester` | `gemini` (Argon) | Corre el juego en Playwright (viewport portrait, touches), verifica checklist Web Lens (zip, paths, 8MB, safe-area, 120Hz). Reporta bugs. | read/exec + playwright |
 | `snap-publisher` | `sonnet` | Packaging y entrega: `pack.mjs`, verificación de zip, icono, preview video, publish a My Lenses, forms de Lenslist. | completo (code) + playwright |
+| `asset-scout` | `sonnet` | Assets y referencias: Poly Haven API (CC0, sin key) + fuentes verificadas, descarga, presupuesto de peso, `LICENSES.md`. | read/exec + web |
 
 **Regla de modelos:** los subagentes creativos/técnicos corren `gemini` (= Argon,
 el modelo del showcase `argon-games`). `snap-publisher` corre `sonnet` porque su
