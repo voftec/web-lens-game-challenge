@@ -245,22 +245,33 @@ async function openSubmitFlow(page, { flow, folderName, lensName }) {
   const radios = page.locator("input[type=radio]");
   const idx = flow === "update" ? 1 : 0;
   await radios.nth(idx).check().catch(() => radios.nth(idx).click());
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(1500);
+  if (flow === "update") {
+    await page.locator("input[role=combobox]").first().click();
+    await page.locator(".ant-select-item-option-content", { hasText: folderName }).first().click();
+    await page.waitForTimeout(2000);
+    if (!(await page.locator(`text=${lensName}`).count())) {
+      throw new Error(`Lens "${lensName}" is not selectable in "${folderName}" — it is likely currently "In Review" (My Lenses hides lenses in review from the Update picker until review completes).`);
+    }
+    await page.click(`text=${lensName}`);
+    await page.waitForSelector(`text=Updating ${lensName}`, { timeout: 20000 });
+    return true;
+  }
   if (folderName) await page.click(`text=${folderName}`).catch(() => {});
-  if (lensName) { await page.waitForTimeout(2000); await page.click(`text=${lensName}`).catch(() => {}); }
   // a stray feedback textarea intercepts pointer events — click via JS
   await page.evaluate(() => document.querySelector('[data-testid="web-lens-folder-continue"]')?.click());
   await page.waitForSelector('[data-testid="web-lens-submit"]', { timeout: 30000 });
   return true;
 }
 
-// Fills the submit form. Optionally clicks Submit and confirms the modal.
+// Fills the submit/update form. Optionally clicks Submit/Update and confirms the modal.
 async function fillAndSubmit(page, { zipPath, name, iconPath, videoPath, visibility, submitForReview }) {
   const log = [];
   await page.evaluate(() => { for (const b of document.querySelectorAll("button")) if (b.innerText.trim() === "Close") b.click(); });
   if (zipPath) {
     await page.locator('input[type=file][accept=".zip"]').setInputFiles(zipPath);
-    await page.waitForSelector(`text=${basename(zipPath)}`, { timeout: 90000 });
+    await page.waitForSelector(`text=${basename(zipPath)}`, { timeout: 120000 });
+    await page.waitForTimeout(3000);
     log.push(`zip uploaded: ${basename(zipPath)}`);
   }
   if (name) {
@@ -268,30 +279,46 @@ async function fillAndSubmit(page, { zipPath, name, iconPath, videoPath, visibil
     log.push(`name: ${name}`);
   }
   if (iconPath) {
-    await page.locator('input[type=file][accept="image/png"]').setInputFiles(iconPath);
-    await page.waitForTimeout(3000);
-    log.push("icon uploaded");
+    const ic = page.locator('input[type=file][accept="image/png"]');
+    if (await ic.count()) {
+      await ic.first().setInputFiles(iconPath);
+      await page.waitForTimeout(2000);
+      log.push("icon uploaded");
+    }
   }
   if (videoPath) {
-    await page.click("text=Change Lens Preview").catch(() => page.click("text=Add Snapchat Lens Preview"));
+    await page.click("text=Change Lens Preview").catch(() => page.click("text=Add Snapchat Lens Preview").catch(() => {}));
     await page.waitForTimeout(1500);
-    await page.locator('input[type=file][accept*="video"]').setInputFiles(videoPath);
-    await page.waitForSelector('button:has-text("Apply")', { timeout: 60000 });
-    await page.waitForTimeout(3000);
-    await page.click('button:has-text("Apply")');
-    await page.waitForTimeout(5000);
-    log.push("preview video attached + applied");
+    const vid = page.locator('input[type=file][accept*="video"]');
+    if (await vid.count()) {
+      await vid.first().setInputFiles(videoPath);
+      await page.waitForSelector('button:has-text("Apply")', { timeout: 60000 }).catch(() => {});
+      await page.waitForTimeout(2500);
+      await page.click('button:has-text("Apply")').catch(() => {});
+      await page.waitForTimeout(3000);
+      log.push("preview video attached + applied");
+    }
   }
   const checklist = await page.evaluate(() =>
     document.body.innerText.match(/Ready to submit[\s\S]{0,1200}/)?.[0] ?? "checklist not found");
   if (!submitForReview) return { log, checklist, submitted: false };
-  await page.evaluate(() => document.querySelector('[data-testid="web-lens-submit"]').click());
-  await page.waitForSelector("text=Publishing Lens", { timeout: 30000 });
-  if (visibility) await page.click(`text=${visibility}`).catch(() => {});
-  await page.evaluate(() => {
-    const btns = [...document.querySelectorAll("button")].filter(b => /^(publish|submit|confirm)$/i.test(b.innerText.trim()));
-    btns[btns.length - 1]?.click();
-  });
+  const isUpdate = await page.evaluate(() => [...document.querySelectorAll("button")].some(b => /^Update$/.test(b.innerText.trim())));
+  if (isUpdate) {
+    await page.evaluate(() => { [...document.querySelectorAll("button")].find(b => /^Update$/.test(b.innerText.trim()))?.click(); });
+    await page.waitForTimeout(2500);
+    await page.evaluate(() => {
+      const btns = [...document.querySelectorAll("button")].filter(b => /^(publish|submit|confirm|update)$/i.test(b.innerText.trim()));
+      btns[btns.length - 1]?.click();
+    });
+  } else {
+    await page.evaluate(() => document.querySelector('[data-testid="web-lens-submit"]')?.click());
+    await page.waitForSelector("text=Publishing Lens", { timeout: 30000 });
+    if (visibility) await page.click(`text=${visibility}`).catch(() => {});
+    await page.evaluate(() => {
+      const btns = [...document.querySelectorAll("button")].filter(b => /^(publish|submit|confirm)$/i.test(b.innerText.trim()));
+      btns[btns.length - 1]?.click();
+    });
+  }
   await page.waitForTimeout(10000);
   log.push(`submitted, visibility=${visibility ?? "default"}`);
   return { log, checklist, submitted: true, finalUrl: page.url() };
