@@ -2,3 +2,4 @@ resources/
 .playwright-mcp/
 node_modules/
 dist/
+*.zip
