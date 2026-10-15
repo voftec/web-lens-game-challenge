@@ -721,7 +721,7 @@ server.tool(
   {
     dir: z.string().describe("Build dir containing index.html"),
     headed: z.boolean().default(true).describe("Show the window so a human can play too"),
-    snapChrome: z.string().optional().describe('Overlay the simulated Snapchat camera UI on the game: "camera" (live), "send" (capture), "sponsored", "connected". Omit for clean recording — preview videos for submission must run WITHOUT the overlay.'),
+    snapChrome: z.string().default("camera").describe('Real Snapchat chrome overlay (from extracted Lens Studio assets): "camera" (live), "send" (capture), "sponsored", "connected", "off". ALWAYS on during dev/playtest — pass "off" only when recording the submission preview video.'),
   },
   async ({ dir, headed, snapChrome }) => {
     if (!existsSync(join(dir, "index.html"))) return txt(`ERROR: no index.html in ${dir}`);

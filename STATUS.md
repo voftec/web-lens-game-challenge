@@ -103,3 +103,30 @@
   gcloud — requeriría OAuth client propio en GCP; fallback mailto funciona.
 - Pendiente: resultado de la review v2 (¿el audio era la causa?) + respuesta
   del ticket con logs reales.
+
+## Update — v2 APROBADO + simulador Snap + HUD mobile (15 oct 2026)
+
+- **`Argon Towers Test` aprobado por Snap** — el fix `audio.unlock→resume`
+  era la causa del Critical Runtime Error. Corre en Snapchat real.
+- **Simulador propio del chrome de Snap** (sin Lens Studio): el RE de
+  `research/snap-preview-re/` extrajo PNGs pixel-perfect de
+  `Lens Studio.app` → `assets/devices_overlays/<Device>/<mode>.png`
+  (13 dispositivos × live/sponsored/capture/connected_lenses + without_ui).
+  El MCP los sirve vía `/__snapchrome__/` y los inyecta como `<img>` overlay.
+- `gameplay_start` ahora: `snapChrome` **default "camera"** (SIEMPRE on en
+  dev/playtest; `off` solo para grabar el preview de publicación), viewport
+  device-accurate iPhone 14 Pro (393×852 CSS @dpr2, video 720×1560) para que
+  el overlay no se deforme. `gameplay_chrome` alterna modos en vivo.
+- **Banda jugable medida** (occlusion.mjs sobre el PNG real, CSS 393×852):
+  status bar 0–59, icon rows hasta ~y160, carousel ~y680, navbar y770–852 →
+  HUD debe vivir entre ~y100–660.
+- **HUD mobile polish** aplicado al spike vía media query `max-width:500px`
+  en `dist/index.html` (gitignored) + fuente versionada en
+  `spikes/mobile-hud-patch.html`: Round/score arriba en el corredor, oro y
+  vidas al nivel de las columnas de iconos, dock como card centrada sobre el
+  carousel, controles en pill, tooltip centrado con auto-hide, callouts
+  clampeados on-screen, gear popover flotante, strings táctiles
+  ("Tap a tile", no "Right-Click").
+- `weblens_make_icon`: icono 512×512 desde frame real del juego.
+- Pendiente decisión de Diego: resubmit v3 (regrabar preview limpio) vs
+  arrancar juego original.
