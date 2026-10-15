@@ -22,3 +22,16 @@
 
 ## Gates registrados
 - (ninguno todavía)
+
+## Update — My Lenses E2E test (2026-10-15)
+
+- Login persistente OK: sesión autenticada en `tools/mylenses-mcp/.browser-profile/` ("Welcome, Diego Aguirre"). En headless el dashboard tarda ~6s en hidratar — esperar `text=Welcome`.
+- Submit E2E completado: `Argon Towers Test` subido al folder `AR 2025`.
+  - Lens ID: `7b660349-db32-4377-97ec-cdf7de42c9cb`, estado `Processing`, visibility `Hidden`.
+- Selectores reales que funcionaron:
+  - Nav: link `text=Web Lenses` → radio "Submit a new Web Lens" → `[data-testid="web-lens-folder-continue"]` (hay un textarea de feedback que intercepta clicks — click via `evaluate`).
+  - Form: `input[type=file][accept=".zip"]` (package), `[accept="image/png"]` (icon), `input[type=text]` (nombre, 18 chars max), `[accept*="video"]` (preview — aparece tras "Change Lens Preview", hay que clickear **Apply** en el modal o queda Invalid).
+  - Submit: `[data-testid="web-lens-submit"]` → modal "Publishing Lens" (elegir visibility: Public/Hidden/Offline) → último botón "Submit".
+- Checklist de la UI: zip válido, ≤100MB, build output ≤8MB, icono png ≤8MB, nombre, video 5–10s (720x1280 min, ≤32MB).
+- Nota: el portal acepta zip de hasta 100MB y extrae el build de dist/ solo — el límite de 8MB aplica al output, no al zip.
+- Próximo: esperar review de Snap, obtener Lens link, probar en teléfono.
