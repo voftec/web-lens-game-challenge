@@ -18,15 +18,21 @@ await new Promise(r=>srv.listen(0,r));
 const url = `http://localhost:${srv.address().port}/`;
 const b = await chromium.launch({ headless:false });
 const c = await b.newContext({ viewport:{width:393,height:852}, deviceScaleFactor:2, hasTouch:true, isMobile:true });
+// Persistent overlay: re-injected on every navigation/reload.
+await c.addInitScript((dev) => {
+  const inject = () => {
+    if (document.getElementById("snap-chrome")) return;
+    const img = document.createElement("img");
+    img.id = "snap-chrome";
+    img.src = `/__snapchrome__/${encodeURIComponent(dev)}/live.png`;
+    img.style.cssText = "position:fixed;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;z-index:2147483647";
+    (document.body || document.documentElement).appendChild(img);
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", inject);
+  else inject();
+  new MutationObserver(inject).observe(document.documentElement, { childList: true, subtree: false });
+}, "iPhone 14 Pro");
 const p = await c.newPage();
 await p.goto(url, { waitUntil:"load" });
-await p.waitForTimeout(4500);
-await p.evaluate(([m, dev]) => {
-  const img = document.createElement("img");
-  img.id = "snap-chrome";
-  img.src = `/__snapchrome__/${encodeURIComponent(dev)}/${m}.png`;
-  img.style.cssText = "position:fixed;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;z-index:2147483647";
-  document.body.appendChild(img);
-}, ["live", "iPhone 14 Pro"]);
-console.log("LIVE:", url);
+console.log("LIVE (overlay persistente):", url);
 await new Promise(()=>{}); // queda abierto
