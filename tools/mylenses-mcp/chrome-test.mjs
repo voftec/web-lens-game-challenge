@@ -16,7 +16,7 @@ const srv = createServer((req,res)=>{
 });
 await new Promise(r=>srv.listen(0,r));
 const b = await chromium.launch();
-const c = await b.newContext({ viewport:{width:720,height:1280}, hasTouch:true, isMobile:true });
+const c = await b.newContext({ viewport:{width:393,height:852}, deviceScaleFactor:2, hasTouch:true, isMobile:true });
 const p = await c.newPage();
 await p.goto(`http://localhost:${srv.address().port}/`, { waitUntil:"load" });
 await p.waitForTimeout(5000);

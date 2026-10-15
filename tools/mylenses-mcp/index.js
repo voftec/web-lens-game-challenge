@@ -30,6 +30,20 @@ const PRIMARY_EMAIL_CC = "diego.aguirre8@icloud.com";
 const SNAP_OVERLAYS_DIR = join(HERE, "..", "..", "research", "snap-preview-re", "assets", "devices_overlays");
 const SNAP_CHROME_MODES = { camera: "live", send: "capture", sponsored: "sponsored", connected: "connected_lenses" };
 const SNAP_CHROME_DEVICE = "iPhone 14 Pro";
+// Device-accurate viewport matching the overlay PNG aspect (1179x2556 =
+// 19.5:9) so the chrome is NOT deformed. CSS logical size is the real
+// iPhone 14 Pro report (393x852 @ dpr3); we run dpr2 and record at
+// 720x1560 (same aspect) to keep files small.
+const SNAP_DEVICE_VIEW = {
+  viewport: { width: 393, height: 852 },
+  deviceScaleFactor: 2,
+  video: { width: 720, height: 1560 },
+};
+const CLEAN_VIEW = {
+  viewport: { width: 720, height: 1280 },
+  deviceScaleFactor: 1,
+  video: { width: 720, height: 1280 },
+};
 
 async function injectSnapChrome(page, mode) {
   const file = SNAP_CHROME_MODES[mode];
@@ -703,7 +717,7 @@ let game = null; // { ctx, page, browser, vidDir, errors, server }
 
 server.tool(
   "gameplay_start",
-  "Start a live gameplay session: serves a build dir, opens a 720x1280 touch viewport (headed by default so Diego can also play in the window), and starts recording video. Use gameplay_screenshot/tap/swipe to play, gameplay_stop to get the mp4.",
+  "Start a live gameplay session: serves a build dir, opens a portrait touch viewport (device-accurate iPhone 14 Pro 393x852 when snapChrome is on; 720x1280 clean) (headed by default so Diego can also play in the window), and starts recording video. Use gameplay_screenshot/tap/swipe to play, gameplay_stop to get the mp4.",
   {
     dir: z.string().describe("Build dir containing index.html"),
     headed: z.boolean().default(true).describe("Show the window so a human can play too"),
@@ -720,16 +734,18 @@ server.tool(
     const vidDir = join(HERE, "shots", `game-${Date.now()}`);
     const errors = [];
     const browser = await chromium.launch({ headless: !headed });
+    const view = snapChrome ? SNAP_DEVICE_VIEW : CLEAN_VIEW;
     const ctx = await browser.newContext({
-      viewport: { width: 720, height: 1280 },
-      recordVideo: { dir: vidDir, size: { width: 720, height: 1280 } },
+      viewport: view.viewport,
+      deviceScaleFactor: view.deviceScaleFactor,
+      recordVideo: { dir: vidDir, size: view.video },
       hasTouch: true, isMobile: true,
     });
     const page = await ctx.newPage();
     page.on("pageerror", e => errors.push("PAGEERROR: " + e.message));
     page.on("console", m => { if (m.type() === "error") errors.push("CONSOLE: " + m.text()); });
     await page.goto(`http://localhost:${port}/`, { waitUntil: "load" });
-    game = { ctx, browser, page, vidDir, errors };
+    game = { ctx, browser, page, vidDir, errors, view };
     if (snapChrome) await injectSnapChrome(page, snapChrome).catch(() => {});
     const shot = join(vidDir, "frame.png");
     await page.waitForTimeout(4000);
@@ -840,13 +856,14 @@ server.tool(
   async ({ outPath, trimStartSec, lengthSec }) => {
     const g = await gameplay_need();
     const vidDir = g.vidDir, errors = g.errors;
+    const vw = g.view?.video.width ?? 720, vh = g.view?.video.height ?? 1280;
     await gameplay_teardown();
     const { readdirSync } = await import("node:fs");
     const webm = readdirSync(vidDir).find(f => f.endsWith(".webm"));
     if (!webm) return txt("ERROR: no video captured");
     const enc = spawnSync("ffmpeg", ["-y", "-i", join(vidDir, webm),
       "-ss", String(trimStartSec), "-t", String(Math.min(lengthSec, 10)),
-      "-vf", "scale=720:1280,fps=30", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+      "-vf", `scale=${vw}:${vh},fps=30`, "-c:v", "libx264", "-pix_fmt", "yuv420p",
       "-movflags", "+faststart", "-c:a", "aac", "-shortest", outPath], { encoding: "utf8" });
     if (enc.status !== 0) return txt(`ffmpeg failed: ${enc.stderr?.slice(-800)}`);
     return txt(JSON.stringify({
