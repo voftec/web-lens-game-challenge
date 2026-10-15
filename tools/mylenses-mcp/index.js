@@ -40,9 +40,9 @@ const SNAP_DEVICE_VIEW = {
   video: { width: 720, height: 1560 },
 };
 const CLEAN_VIEW = {
-  viewport: { width: 720, height: 1280 },
-  deviceScaleFactor: 1,
-  video: { width: 720, height: 1280 },
+  viewport: { width: 393, height: 852 },
+  deviceScaleFactor: 2,
+  video: { width: 720, height: 1560 },
 };
 
 async function injectSnapChrome(page, mode) {

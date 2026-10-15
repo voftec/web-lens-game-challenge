@@ -116,9 +116,29 @@ Whenever adapting or building a game, audit the code for these functional traps:
 
 ---
 
-## 6. Reference CSS Patch (`@media (max-width: 500px)`)
+## 6. Resolution-Independent Scaling Formula (`--ux`, `--uy`, `--s`)
 
-Canonical snippet lives at `spikes/mobile-hud-patch.html`. Inject or adapt its rules into any game's stylesheet so desktop (`>500px`) stays untouched and mobile (`393×852`) gets the exact Snapchat layout.
+To make the distribution AND relative element sizes look **identical** across small phones (`iPhone 8` `375×667`), standard notched phones (`iPhone 14 Pro` `393×852`), large phones (`Pro Max` `430×932`, `Galaxy S20`), and `720×1280` preview captures, never use raw `px` for anchor positions or fixed unscaled `scale(...)` factors:
+
+1. **Position anchors (`--ux`, `--uy`)** scale with viewport width/height so HUD clusters stay locked to Snapchat's overlay icons:
+   - `--ux: calc(100vw / 393)`
+   - `--uy: calc(100vh / 852)`
+   - `--snap-top: calc(68 * var(--uy) + env(safe-area-inset-top, 0px))`
+   - `--snap-bot: calc(196 * var(--uy) + env(safe-area-inset-bottom, 0px))`
+   - Side paddings: `padding-left: calc(53 * var(--ux)); padding-right: calc(56 * var(--ux))` (clears both iPhone 14 Pro `ⓘ` at `10.1%` and iPhone 8 `ⓘ` at `12.7%`).
+2. **Uniform element scale (`--s`)** scales every cluster's visual size AND internal vertical stacking gaps (`+ 76px * var(--s)` for controls above dock, `+ 156px * var(--s)` for tooltip) by `min(innerWidth / 393, innerHeight / 852)`:
+   ```js
+   function syncScale() {
+     var s = Math.min(window.innerWidth / 393, window.innerHeight / 852);
+     document.documentElement.style.setProperty('--s', s.toFixed(4));
+   }
+   syncScale();
+   window.addEventListener('resize', syncScale);
+   ```
+   - On `393×852` (`iPhone 14 Pro`): `--ux = 1px`, `--uy = 1px`, `--s = 1` (exact 1:1 reference).
+   - On `375×667` (`iPhone 8`): `--s = 0.7829` (buttons shrink 22% so they never crowd the shorter screen or collide with the controls row).
+   - On `720×1280`: `--s = 1.5023` (buttons grow 50% so they never look tiny).
+3. Canonical snippet lives at `spikes/mobile-hud-patch.html`.
 
 ## 7. Verification Workflow (Mandatory Before Saying "Done")
 

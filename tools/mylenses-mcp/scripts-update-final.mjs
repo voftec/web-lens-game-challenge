@@ -14,14 +14,19 @@ await page.locator(".ant-select-item-option-content", { hasText: "AR 2025" }).fi
 await page.waitForSelector("text=Argon Towers Test");
 await page.click("text=Argon Towers Test");
 await page.waitForSelector("text=Updating Argon Towers Test");
-await page.locator('input[type=file][accept=".zip"]').setInputFiles("../../spikes/argon-towers-lens-v2.zip");
-await page.waitForSelector("text=argon-towers-lens-v2.zip", { timeout: 120000 });
+await page.locator('input[type=file][accept=".zip"]').setInputFiles("../../spikes/argon-towers-lens-v3.zip");
+await page.waitForSelector("text=argon-towers-lens-v3.zip", { timeout: 120000 });
 await page.waitForTimeout(4000);
+const iconInput = page.locator('input[type=file][accept="image/png"]');
+if (await iconInput.count()) {
+  await iconInput.first().setInputFiles("../../spikes/argon-towers-v2/icon.png").catch(()=>{});
+  await page.waitForTimeout(1500);
+}
 await page.click("text=Change Lens Preview").catch(()=>{});
 await page.waitForTimeout(1500);
 const vid = page.locator('input[type=file][accept*="video"]');
 if (await vid.count()) {
-  await vid.first().setInputFiles("../../spikes/argon-towers-v2/preview-real.mp4");
+  await vid.first().setInputFiles("../../spikes/argon-towers-v2/preview-v3.mp4");
   await page.waitForSelector('button:has-text("Apply")', { timeout: 60000 }).catch(()=>{});
   await page.waitForTimeout(2500);
   await page.click('button:has-text("Apply")').catch(()=>{});

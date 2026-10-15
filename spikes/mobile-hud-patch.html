@@ -1,18 +1,27 @@
 <!-- Mobile HUD patch — inject into a build's index.html before </head>.
-     Keeps all HUD inside the measured Snapchat playable band
-     (occlusion measured from the real iPhone 14 Pro overlay PNG:
-      blocked y0-59 + icon rows to ~y160, carousel ~y680, navbar y770-852).
-     Layout: round label up in the corridor under the status bar,
-     gold/lives beside the Snap icon columns, tower dock as a centered
-     card floating above the carousel, controls as a compact pill row,
-     tooltip/banners/toasts repositioned inside the band. -->
+     Resolution-independent Snapchat HUD layout:
+     - Reference canvas: 393x852 (iPhone 14 Pro)
+     - --ux = 100vw / 393, --uy = 100vh / 852 (position anchors follow Snap overlay)
+     - --s  = min(innerWidth / 393, innerHeight / 852) (uniform element scale so
+       every button, icon, font, and inter-row gap has the exact same relative
+       size on small phones like iPhone 8 375x667, iPhone 14 Pro 393x852,
+       Pro Max 430x932, and 720x1280 preview capture). -->
 <style>
-@media (max-width: 500px) {
-  .fr-top-bar { padding-top: calc(68px + env(safe-area-inset-top, 0px)) !important;
-                padding-left: 48px !important; padding-right: 56px !important;
+@media (max-width: 768px), (orientation: portrait) {
+  :root {
+    --ux: calc(100vw / 393);
+    --uy: calc(100vh / 852);
+    --s: 1;
+    --snap-top: calc(68 * var(--uy) + env(safe-area-inset-top, 0px));
+    --snap-bot: calc(196 * var(--uy) + env(safe-area-inset-bottom, 0px));
+  }
+  .fr-top-bar { padding-top: var(--snap-top) !important;
+                padding-left: calc(53 * var(--ux)) !important;
+                padding-right: calc(56 * var(--ux)) !important;
                 align-items: flex-start !important; }
-  .fr-gold-cluster { transform: translateY(52px) scale(0.78); gap: 5px !important; }
-  .fr-lives-cluster { transform: translateY(52px) scale(0.78); gap: 5px !important; }
+  .fr-center-cluster { transform: scale(var(--s)); transform-origin: top center; }
+  .fr-gold-cluster { transform: translateY(calc(52 * var(--uy))) scale(calc(0.78 * var(--s))); gap: 5px !important; }
+  .fr-lives-cluster { transform: translateY(calc(52 * var(--uy))) scale(calc(0.78 * var(--s))); gap: 5px !important; }
   .fr-dollar-emblem { width: 30px !important; height: 34px !important; }
   .fr-heart-icon { width: 36px !important; height: 34px !important; }
   .fr-score-value { font-size: 22px !important; }
@@ -20,8 +29,8 @@
   .fr-wave-progress-wrap { width: 100px !important; order: -1; }
   .fr-tower-dock {
     left: 50% !important; right: auto !important;
-    bottom: calc(196px + env(safe-area-inset-bottom, 0px)) !important;
-    transform: translateX(-50%) scale(0.7);
+    bottom: var(--snap-bot) !important;
+    transform: translateX(-50%) scale(calc(0.7 * var(--s)));
     transform-origin: bottom center;
     background: rgba(10, 18, 6, 0.55);
     border: 2px solid rgba(255, 255, 255, 0.14);
@@ -30,34 +39,47 @@
     gap: 12px !important;
     backdrop-filter: blur(3px);
   }
-  .fr-wave-banner { top: calc(160px + env(safe-area-inset-top, 0px)) !important;
+  .fr-wave-banner { top: calc(var(--snap-top) + 92px * var(--s)) !important;
                     min-width: 0 !important; max-width: 340px !important;
-                    transform: translateX(-50%) scale(0.9) !important; }
-  .fr-achievement-stack { top: calc(210px + env(safe-area-inset-top, 0px)) !important; right: 10px !important; }
+                    transform: translateX(-50%) scale(calc(0.9 * var(--s))) !important; }
+  .fr-achievement-stack { top: calc(var(--snap-top) + 142px * var(--s)) !important;
+                          right: calc(10 * var(--ux)) !important;
+                          transform: scale(var(--s)); transform-origin: top right; }
   .fr-achievement-toast { width: 220px !important; }
   .fr-radial-menu, .fr-radial-ring { transform-origin: center; }
   .fr-dock-tooltip {
     right: 0 !important; left: 0 !important;
     margin-inline: auto;
     width: fit-content;
-    bottom: calc(352px + env(safe-area-inset-bottom, 0px)) !important;
-    transform: scale(0.85);
+    bottom: calc(var(--snap-bot) + 156px * var(--s)) !important;
+    transform: scale(calc(0.85 * var(--s)));
     transform-origin: bottom center;
     max-width: 320px;
   }
   .fr-gear-popover {
     left: 50% !important; right: auto !important;
-    bottom: calc(330px + env(safe-area-inset-bottom, 0px)) !important;
-    transform: translateX(-50%) scale(0.85);
+    bottom: calc(var(--snap-bot) + 134px * var(--s)) !important;
+    transform: translateX(-50%) scale(calc(0.85 * var(--s)));
     transform-origin: bottom center;
     max-width: 320px;
   }
   .fr-bottom-left-controls {
     left: 50% !important;
-    bottom: calc(272px + env(safe-area-inset-bottom, 0px)) !important;
-    transform: translateX(-50%) scale(0.78);
+    bottom: calc(var(--snap-bot) + 76px * var(--s)) !important;
+    transform: translateX(-50%) scale(calc(0.78 * var(--s)));
     transform-origin: bottom center;
     gap: 8px !important;
   }
+  .fr-wave-call-btn { max-width: 96px !important; padding: 6px 10px !important; font-size: 13px !important; line-height: 1.05 !important; white-space: normal !important; text-align: center !important; }
 }
 </style>
+<script>
+(function(){
+  function syncScale(){
+    var s = Math.min(window.innerWidth / 393, window.innerHeight / 852);
+    document.documentElement.style.setProperty('--s', s.toFixed(4));
+  }
+  syncScale();
+  window.addEventListener('resize', syncScale);
+})();
+</script>

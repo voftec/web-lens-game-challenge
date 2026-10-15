@@ -128,5 +128,15 @@
   clampeados on-screen, gear popover flotante, strings táctiles
   ("Tap a tile", no "Right-Click").
 - `weblens_make_icon`: icono 512×512 desde frame real del juego.
-- Pendiente decisión de Diego: resubmit v3 (regrabar preview limpio) vs
-  arrancar juego original.
+- **Skill `.devin/skills/snap-game-ui-adapt/SKILL.md`** creada e integrada en
+  `AGENTS.md` y los 4 agentes: mapa de píxeles exacto de Snapchat, distribución
+  de 3 puntos en escalera (`Round/bar/score` arriba, `$` al lado de `ⓘ`, `❤️`
+  al lado del toolbar), escalado independiente de resolución (`--ux`, `--uy`,
+  `--s = min(innerWidth/393, innerHeight/852)`) verificado en 4 resoluciones
+  (`375×667` iPhone 8, `393×852` iPhone 14 Pro, `430×932` Pro Max, `720×1280`),
+  consistencia de posición en animaciones y checklist funcional touch-first.
+- **Update v3 enviado a My Lenses** (15 oct, 3:10 PM): `argon-towers-lens-v3.zip`
+  (5.6MB, 0 referencias a `snap-chrome`) + `preview-v3.mp4` (`720×1280` H.264
+  faststart, 9.5s de gameplay real posicionando 3 torres en embudo) + `icon.png`.
+  Nota: actualizar un Lens existente NO consume del cupo `Non-Lens+` (sigue en
+  `19 left`).
