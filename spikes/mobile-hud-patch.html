@@ -7,10 +7,11 @@
      control row as a compact pill above the dock. -->
 <style>
 @media (max-width: 500px) {
-  .fr-top-bar { padding-top: calc(98px + env(safe-area-inset-top, 0px)) !important;
-                padding-left: 86px !important; padding-right: 86px !important; }
-  .fr-gold-cluster { transform: scale(0.8); }
-  .fr-lives-cluster { transform: scale(0.8); }
+  .fr-top-bar { padding-top: calc(56px + env(safe-area-inset-top, 0px)) !important;
+                padding-left: 82px !important; padding-right: 82px !important;
+                align-items: flex-start !important; }
+  .fr-gold-cluster { transform: translateY(58px) scale(0.8); }
+  .fr-lives-cluster { transform: translateY(58px) scale(0.8); }
   .fr-score-value { font-size: 24px !important; }
   .fr-round-label { font-size: 20px !important; }
   .fr-wave-progress-wrap { width: 100px !important; }
