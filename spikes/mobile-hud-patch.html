@@ -1,0 +1,20 @@
+<!-- Mobile HUD patch — inject into a build's index.html before </head>.
+     Keeps all HUD inside the measured Snapchat playable band
+     (occlusion measured from the real iPhone 14 Pro overlay PNG:
+      blocked y0-59 + icons to ~y95, carousel ~y680, navbar y770-852;
+      safe HUD zone approx y100-660 of 852 CSS px). -->
+<style>
+@media (max-width: 500px) {
+  .fr-top-bar { padding-top: calc(96px + env(safe-area-inset-top, 0px)) !important;
+                padding-left: 76px !important; padding-right: 76px !important; }
+  .fr-gold-value { font-size: 24px !important; }
+  .fr-dollar-emblem { width: 30px !important; height: 35px !important; }
+  .fr-lives-value { font-size: 24px !important; }
+  .fr-round-label { font-size: 24px !important; }
+  .fr-tower-dock { bottom: calc(190px + env(safe-area-inset-bottom, 0px)) !important;
+                   transform: scale(0.72); transform-origin: bottom right; }
+  .fr-bottom-left-controls { bottom: calc(252px + env(safe-area-inset-bottom, 0px)) !important;
+                             transform: scale(0.82); transform-origin: bottom left;
+                             gap: 6px !important; }
+}
+</style>
