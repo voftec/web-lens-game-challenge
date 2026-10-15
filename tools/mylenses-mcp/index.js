@@ -23,6 +23,13 @@ const GMAIL = "https://mail.google.com";
 // Diego's primary (Apple/iCloud) address — always CC'd on support mails so
 // Snap replies land in his main inbox, not just the Gmail sender account.
 const PRIMARY_EMAIL_CC = "diego.aguirre8@icloud.com";
+const SNAP_CHROME_FILE = readFileSync(join(HERE, "snap-chrome.js"), "utf8")
+  .replace(/^const /gm, "var ");
+// Injects the chrome-defining script then calls snapChrome(mode|"off").
+async function injectSnapChrome(page, mode) {
+  await page.evaluate(SNAP_CHROME_FILE);
+  await page.evaluate(`snapChrome(${JSON.stringify(mode)})`);
+}
 
 const MIME = {
   ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript",
@@ -138,8 +145,11 @@ server.tool(
       res.setHeader("Content-Type", MIME[extname(file)] ?? "application/octet-stream");
       createReadStream(file).pipe(res);
     });
-    await new Promise((r) => staticServer.listen(port, r));
-    return txt(`serving ${dir} at http://localhost:${port}/`);
+    await new Promise((r) => staticServer.listen(port, r)).catch(async () => {
+      await new Promise((r) => staticServer.listen(0, r));
+    });
+    const actualPort = staticServer.address().port;
+    return txt(`serving ${dir} at http://localhost:${actualPort}/`);
   }
 );
 
@@ -615,14 +625,15 @@ server.tool(
     if (!existsSync(join(dir, "index.html"))) return txt(`ERROR: no index.html in ${dir}`);
     // serve the build
     if (staticServer) await new Promise((r) => staticServer.close(r));
-    const port = 8471;
+    let port = 0;
     staticServer = createServer((req, res) => {
       const p = join(dir, decodeURIComponent(req.url.split("?")[0]).replace(/^\/+/, "") || "index.html");
       const file = existsSync(p) && statSync(p).isFile() ? p : join(dir, "index.html");
       res.setHeader("Content-Type", MIME[extname(file)] ?? "application/octet-stream");
       createReadStream(file).pipe(res);
     });
-    await new Promise((r) => staticServer.listen(port, r));
+    await new Promise((r) => staticServer.listen(0, r));
+    port = staticServer.address().port;
     const vidDir = join(HERE, "shots", `rec-${Date.now()}`);
     const errors = [];
     const browser = await chromium.launch();
@@ -675,19 +686,21 @@ server.tool(
   {
     dir: z.string().describe("Build dir containing index.html"),
     headed: z.boolean().default(true).describe("Show the window so a human can play too"),
+    snapChrome: z.string().optional().describe('Overlay the simulated Snapchat camera UI on the game: "camera" (carousel+nav) or "send" (Send-To bar). Omit for clean recording — preview videos for submission must run WITHOUT the overlay.'),
   },
-  async ({ dir, headed }) => {
+  async ({ dir, headed, snapChrome }) => {
     if (!existsSync(join(dir, "index.html"))) return txt(`ERROR: no index.html in ${dir}`);
     if (game) await gameplay_teardown();
     if (staticServer) await new Promise((r) => staticServer.close(r));
-    const port = 8471;
+    let port = 0;
     staticServer = createServer((req, res) => {
       const p = join(dir, decodeURIComponent(req.url.split("?")[0]).replace(/^\/+/, "") || "index.html");
       const file = existsSync(p) && statSync(p).isFile() ? p : join(dir, "index.html");
       res.setHeader("Content-Type", MIME[extname(file)] ?? "application/octet-stream");
       createReadStream(file).pipe(res);
     });
-    await new Promise((r) => staticServer.listen(port, r));
+    await new Promise((r) => staticServer.listen(0, r));
+    port = staticServer.address().port;
     const vidDir = join(HERE, "shots", `game-${Date.now()}`);
     const errors = [];
     const browser = await chromium.launch({ headless: !headed });
@@ -701,8 +714,10 @@ server.tool(
     page.on("console", m => { if (m.type() === "error") errors.push("CONSOLE: " + m.text()); });
     await page.goto(`http://localhost:${port}/`, { waitUntil: "load" });
     game = { ctx, browser, page, vidDir, errors };
+    if (snapChrome) await injectSnapChrome(page, snapChrome).catch(() => {});
     const shot = join(vidDir, "frame.png");
     await page.waitForTimeout(4000);
+    if (snapChrome) await injectSnapChrome(page, snapChrome).catch(() => {});
     await page.screenshot({ path: shot }).catch(() => {});
     return txt(`gameplay session live at http://localhost:${port}/ — window ${headed ? "open (you can play manually, it is being recorded)" : "headless"}. First frame: ${shot}`);
   }
@@ -772,6 +787,20 @@ server.tool(
 );
 
 server.tool(
+  "gameplay_chrome",
+  'Toggle the simulated Snap camera chrome overlay in the live session: "camera", "send", or "off". Returns a fresh frame so you can see what the game looks like behind Snap\'s UI.',
+  { mode: z.string().describe('"camera" | "send" | "off"') },
+  async ({ mode }) => {
+    const g = await gameplay_need();
+    await injectSnapChrome(g.page, mode);
+    await g.page.waitForTimeout(300);
+    const shot = join(g.vidDir, `frame-${Date.now()}.png`);
+    await g.page.screenshot({ path: shot }).catch(() => {});
+    return txt(JSON.stringify({ mode, frame: shot }));
+  }
+);
+
+server.tool(
   "gameplay_wait",
   "Wait ms (let the game run), then return a fresh frame path. Use between actions.",
   { ms: z.number().default(1000) },
@@ -809,6 +838,57 @@ server.tool(
       sessionErrors: errors.length ? errors : "none",
       frames: `${vidDir}/frame-*.png`,
     }, null, 2));
+  }
+);
+
+// --- icon generator -------------------------------------------------------
+// 512x512 PNG cut from a REAL game frame — either from the live gameplay
+// session, or a quick headless boot of the build. Reusable per game.
+
+async function captureGameFrame(dir, warmupMs, tapList) {
+  if (game) return { page: game.page, temp: false };
+  if (!existsSync(join(dir, "index.html"))) return null;
+  if (staticServer) await new Promise((r) => staticServer.close(r));
+  let port = 0;
+  staticServer = createServer((req, res) => {
+    const p = join(dir, decodeURIComponent(req.url.split("?")[0]).replace(/^\/+/, "") || "index.html");
+    const file = existsSync(p) && statSync(p).isFile() ? p : join(dir, "index.html");
+    res.setHeader("Content-Type", MIME[extname(file)] ?? "application/octet-stream");
+    createReadStream(file).pipe(res);
+  });
+  await new Promise((r) => staticServer.listen(0, r));
+  port = staticServer.address().port;
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ viewport: { width: 720, height: 1280 }, hasTouch: true, isMobile: true });
+  const page = await ctx.newPage();
+  await page.goto(`http://localhost:${port}/`, { waitUntil: "load" });
+  await page.waitForTimeout(warmupMs);
+  for (const [x, y, d] of tapList) { await page.touchscreen.tap(x, y).catch(() => {}); await page.waitForTimeout(d ?? 800); }
+  return { page, browser, ctx, temp: true };
+}
+
+server.tool(
+  "weblens_make_icon",
+  "Generate a 512x512 Lens icon PNG from a REAL game frame: uses the live gameplay session if one is running, otherwise boots the build headless (with optional warmup/taps to reach an action frame), then crops a square and scales to 512. Pass cropX/cropY to aim at the most interesting region.",
+  {
+    dir: z.string().optional().describe("Build dir (only needed if no gameplay session is live)"),
+    outPath: z.string().describe("Output icon .png path"),
+    cropX: z.number().default(0).describe("Left offset of the 720x720 crop square"),
+    cropY: z.number().default(280).describe("Top offset of the crop square (0-560)"),
+    warmupMs: z.number().default(5000),
+    taps: z.string().optional().describe("Optional JSON [[x,y,delayMs],...] to reach an action frame before capture (only when booting its own session)"),
+  },
+  async ({ dir, outPath, cropX, cropY, warmupMs, taps }) => {
+    const sess = await captureGameFrame(dir ?? "", warmupMs, taps ? JSON.parse(taps) : []);
+    if (!sess) return txt(`ERROR: no gameplay session live and no index.html in ${dir}`);
+    const tmp = join(HERE, "shots", `icon-src-${Date.now()}.png`);
+    await sess.page.screenshot({ path: tmp });
+    if (sess.temp) { await sess.ctx.close().catch(() => {}); await sess.browser.close().catch(() => {}); }
+    const enc = spawnSync("ffmpeg", ["-y", "-i", tmp,
+      "-vf", `crop=720:720:${cropX}:${cropY},scale=512:512`,
+      "-frames:v", "1", outPath], { encoding: "utf8" });
+    if (enc.status !== 0) return txt(`ffmpeg failed: ${enc.stderr?.slice(-600)}`);
+    return txt(JSON.stringify({ icon: outPath, source: tmp, sizeKB: Math.round(statSync(outPath).size / 1024) }, null, 2));
   }
 );
 
