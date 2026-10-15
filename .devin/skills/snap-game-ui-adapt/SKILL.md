@@ -126,18 +126,27 @@ To make the distribution AND relative element sizes look **identical** across sm
    - `--snap-top: calc(68 * var(--uy) + env(safe-area-inset-top, 0px))`
    - `--snap-bot: calc(196 * var(--uy) + env(safe-area-inset-bottom, 0px))`
    - Side paddings: `padding-left: calc(53 * var(--ux)); padding-right: calc(56 * var(--ux))` (clears both iPhone 14 Pro `ⓘ` at `10.1%` and iPhone 8 `ⓘ` at `12.7%`).
-2. **Uniform element scale (`--s`)** scales every cluster's visual size AND internal vertical stacking gaps (`+ 76px * var(--s)` for controls above dock, `+ 156px * var(--s)` for tooltip) by `min(innerWidth / 393, innerHeight / 852)`:
+2. **Uniform element scale (`--s`) + Aspect-Ratio Anchors (`--top-k`, `--row2-k`, `--bot-k`)**:
+   Because Snapchat positions its top icons relative to the hardware top bar (Dynamic Island vs Notch vs Punch-hole vs 16:9 status bar) and Android devices add a bottom navigation bar under the Lens carousel, `syncScale()` adapts the 3 vertical anchors by aspect ratio `ar = innerHeight / innerWidth` while scaling all cluster sizes by `--s = min(innerWidth / 393, innerHeight / 852)`:
    ```js
    function syncScale() {
-     var s = Math.min(window.innerWidth / 393, window.innerHeight / 852);
-     document.documentElement.style.setProperty('--s', s.toFixed(4));
+     var w = window.innerWidth, h = window.innerHeight, ar = h / Math.max(1, w);
+     var s = Math.min(w / 393, h / 852);
+     var topK = 68, row2K = 52, botK = 196;
+     if (ar >= 2.20)      { topK = 46; row2K = 46; botK = 224; } // 20:9 (Galaxy S20)
+     else if (ar >= 2.05) { topK = 68; row2K = 52; botK = 196; } // 19.5:9 (iPhone X/13/14 Pro/Max, Redmi Note 8 Pro)
+     else if (ar >= 1.90) { topK = 46; row2K = 52; botK = 246; } // 18:9..18.5:9 (Galaxy S9, LG G6, Pixel 2 XL)
+     else                 { topK = 48; row2K = 68; botK = 238; } // 16:9 & 3:2 (iPhone 8, iPhone 5s, KEYone)
+     var root = document.documentElement.style;
+     root.setProperty('--s', s.toFixed(4));
+     root.setProperty('--top-k', topK);
+     root.setProperty('--row2-k', row2K);
+     root.setProperty('--bot-k', botK);
    }
    syncScale();
    window.addEventListener('resize', syncScale);
    ```
-   - On `393×852` (`iPhone 14 Pro`): `--ux = 1px`, `--uy = 1px`, `--s = 1` (exact 1:1 reference).
-   - On `375×667` (`iPhone 8`): `--s = 0.7829` (buttons shrink 22% so they never crowd the shorter screen or collide with the controls row).
-   - On `720×1280`: `--s = 1.5023` (buttons grow 50% so they never look tiny).
+   Verified across **all 13 device models** in Lens Studio (`tools/mylenses-mcp/test-all-devices.mjs` → `shots/grid-active-5.jpg` and `shots/grid-legacy-8.jpg`).
 3. Canonical snippet lives at `spikes/mobile-hud-patch.html`.
 
 ## 7. Verification Workflow (Mandatory Before Saying "Done")

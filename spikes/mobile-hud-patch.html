@@ -12,16 +12,19 @@
     --ux: calc(100vw / 393);
     --uy: calc(100vh / 852);
     --s: 1;
-    --snap-top: calc(68 * var(--uy) + env(safe-area-inset-top, 0px));
-    --snap-bot: calc(196 * var(--uy) + env(safe-area-inset-bottom, 0px));
+    --top-k: 68;
+    --row2-k: 52;
+    --bot-k: 196;
+    --snap-top: calc(var(--top-k) * var(--uy) + env(safe-area-inset-top, 0px));
+    --snap-bot: calc(var(--bot-k) * var(--uy) + env(safe-area-inset-bottom, 0px));
   }
   .fr-top-bar { padding-top: var(--snap-top) !important;
                 padding-left: calc(53 * var(--ux)) !important;
                 padding-right: calc(56 * var(--ux)) !important;
                 align-items: flex-start !important; }
   .fr-center-cluster { transform: scale(var(--s)); transform-origin: top center; }
-  .fr-gold-cluster { transform: translateY(calc(52 * var(--uy))) scale(calc(0.78 * var(--s))); gap: 5px !important; }
-  .fr-lives-cluster { transform: translateY(calc(52 * var(--uy))) scale(calc(0.78 * var(--s))); gap: 5px !important; }
+  .fr-gold-cluster { transform: translateY(calc(var(--row2-k) * var(--uy))) scale(calc(0.78 * var(--s))); gap: 5px !important; }
+  .fr-lives-cluster { transform: translateY(calc(var(--row2-k) * var(--uy))) scale(calc(0.78 * var(--s))); gap: 5px !important; }
   .fr-dollar-emblem { width: 30px !important; height: 34px !important; }
   .fr-heart-icon { width: 36px !important; height: 34px !important; }
   .fr-score-value { font-size: 22px !important; margin-top: 4px !important; }
@@ -76,8 +79,18 @@
 <script>
 (function(){
   function syncScale(){
-    var s = Math.min(window.innerWidth / 393, window.innerHeight / 852);
-    document.documentElement.style.setProperty('--s', s.toFixed(4));
+    var w = window.innerWidth, h = window.innerHeight, ar = h / Math.max(1, w);
+    var s = Math.min(w / 393, h / 852);
+    var topK = 68, row2K = 52, botK = 196;
+    if (ar >= 2.20)      { topK = 46; row2K = 46; botK = 224; } // 20:9 (Galaxy S20)
+    else if (ar >= 2.05) { topK = 68; row2K = 52; botK = 196; } // 19.5:9 (iPhone 13/14 Pro/Max)
+    else if (ar >= 1.90) { topK = 46; row2K = 52; botK = 246; } // 18:9..18.5:9 (S9/LG G6/Pixel 2 XL)
+    else                 { topK = 48; row2K = 68; botK = 238; } // 16:9 & 3:2 (iPhone 8/5s/KEYone)
+    var root = document.documentElement.style;
+    root.setProperty('--s', s.toFixed(4));
+    root.setProperty('--top-k', topK);
+    root.setProperty('--row2-k', row2K);
+    root.setProperty('--bot-k', botK);
   }
   syncScale();
   window.addEventListener('resize', syncScale);
