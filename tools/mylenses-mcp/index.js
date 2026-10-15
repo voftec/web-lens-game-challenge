@@ -17,7 +17,9 @@ import { fileURLToPath } from "node:url";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const PROFILE_DIR = join(HERE, ".browser-profile");
+const GMAIL_PROFILE_DIR = join(HERE, ".gmail-profile");
 const MYLENSES = "https://my-lenses.snapchat.com";
+const GMAIL = "https://mail.google.com";
 
 const MIME = {
   ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript",
@@ -34,8 +36,8 @@ function txt(s) { return { content: [{ type: "text", text: s }] }; }
 
 // --- helpers ---------------------------------------------------------------
 
-async function withPage(headless, fn) {
-  const ctx = await chromium.launchPersistentContext(PROFILE_DIR, {
+async function withPage(headless, fn, profileDir = PROFILE_DIR) {
+  const ctx = await chromium.launchPersistentContext(profileDir, {
     headless,
     viewport: { width: 1280, height: 900 },
   });
@@ -351,6 +353,49 @@ server.tool(
   }
 );
 
+// Scrapes a lens page: lensId, status, rejection banner, and all error modal text.
+async function scrapeLensErrors(page, { lensName, folderName }) {
+  await page.goto(`${MYLENSES}/home`, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("text=Welcome", { timeout: 30000 });
+  await page.click("text=Lens Folders");
+  await page.waitForTimeout(4000);
+  const folders = folderName ? [folderName] :
+    await page.evaluate(() => [...document.querySelectorAll("a")]
+      .map(a => a.innerText.trim())
+      .filter(t => t && !/Home|Lens Folders|Insights|Monetization|Asset|Hosted|Web Lenses|Scheduler|Apps|Privacy|Terms|Cookie|Invite|Manage|Create/.test(t))
+      .slice(0, 10));
+  let found = false;
+  for (const f of folders) {
+    await page.goto(`${MYLENSES}/home`, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("text=Welcome", { timeout: 30000 });
+    await page.click("text=Lens Folders");
+    await page.waitForTimeout(3000);
+    await page.click(`text=${f}`).catch(() => {});
+    await page.waitForTimeout(4000);
+    if (await page.locator(`text=${lensName}`).count()) {
+      await page.click(`text=${lensName}`);
+      found = f;
+      break;
+    }
+  }
+  if (!found) return { error: `Lens "${lensName}" not found in folders: ${folders.join(", ")}` };
+  await page.waitForTimeout(5000);
+  const base = await page.evaluate(() => ({
+    url: location.href,
+    lensId: document.body.innerText.match(/Lens ID:\s*([0-9a-f-]+)/i)?.[1] ?? null,
+    status: document.body.innerText.match(/\n(Processing|Published|Invalid|Live|Rejected)\n/)?.[1] ?? null,
+    banner: document.body.innerText.match(/This Lens submission was[^.]+\./)?.[0] ?? null,
+  }));
+  for (const sel of ["text=Error Logs", "text=See more", "text=View Details"]) {
+    await page.click(sel).catch(() => {});
+    await page.waitForTimeout(2500);
+  }
+  const modalText = await page.evaluate(() =>
+    [...new Set([...document.querySelectorAll(".ant-modal, [class*=modal], [role=dialog]")]
+      .map(m => m.innerText.trim()).filter(Boolean))].join("\n---\n"));
+  return { folder: found, ...base, errors: modalText };
+}
+
 server.tool(
   "mylenses_error_report",
   "Fetch a Lens's review errors: navigates to its detail page in a Lens Folder, scrapes the Lens ID, status and every error shown in the Errors modal ('Error Logs'/'See more'). Returns the errors plus a ready-to-send support email draft (lensstudio-support@snapchat.com) including the Lens ID, asking for the detailed logs and which behaviors are disallowed.",
@@ -361,72 +406,148 @@ server.tool(
   async ({ lensName, folderName }) => {
     return txt(
       await withPage(true, async (page) => {
-        await page.goto(`${MYLENSES}/home`, { waitUntil: "domcontentloaded" });
-        await page.waitForSelector("text=Welcome", { timeout: 30000 });
-        await page.click("text=Lens Folders");
-        await page.waitForTimeout(4000);
-        const folders = folderName ? [folderName] :
-          await page.evaluate(() => [...document.querySelectorAll("a")]
-            .map(a => a.innerText.trim())
-            .filter(t => t && !/Home|Lens Folders|Insights|Monetization|Asset|Hosted|Web Lenses|Scheduler|Apps|Privacy|Terms|Cookie|Invite|Create/.test(t))
-            .slice(0, 10));
-        let found = false;
-        for (const f of folders) {
-          await page.goto(`${MYLENSES}/home`, { waitUntil: "domcontentloaded" });
-          await page.waitForSelector("text=Welcome", { timeout: 30000 });
-          await page.click("text=Lens Folders");
-          await page.waitForTimeout(3000);
-          await page.click(`text=${f}`).catch(() => {});
-          await page.waitForTimeout(4000);
-          if (await page.locator(`text=${lensName}`).count()) {
-            await page.click(`text=${lensName}`);
-            found = true;
-            break;
-          }
-        }
-        if (!found) return `Lens "${lensName}" not found in folders: ${folders.join(", ")}`;
-        await page.waitForTimeout(5000);
-        const base = await page.evaluate(() => ({
-          url: location.href,
-          lensId: document.body.innerText.match(/Lens ID:\s*([0-9a-f-]+)/i)?.[1] ?? null,
-          status: document.body.innerText.match(/\n(Processing|Published|Invalid|Live|Rejected)\n/)?.[1] ?? null,
-          banner: document.body.innerText.match(/This Lens submission was[^.]+\./)?.[0] ?? null,
-        }));
-        // open every error affordance and collect text
-        for (const sel of ["text=Error Logs", "text=See more", "text=View Details"]) {
-          await page.click(sel).catch(() => {});
-          await page.waitForTimeout(2500);
-        }
-        const errors = await page.evaluate(() => {
-          const mods = [...document.querySelectorAll(".ant-modal, [class*=modal], [role=dialog]")]
-            .map(m => m.innerText.trim()).filter(Boolean);
-          const body = document.body.innerText;
-          const inline = body.match(/Errors[\s\S]{0,2000}?mailto:[^)]+\)|Errors\n[\s\S]{0,1500}/)?.[0];
-          return { modalText: mods.join("\n---\n"), inlineErrors: inline ?? null };
-        });
+        const r = await scrapeLensErrors(page, { lensName, folderName });
+        if (r.error) return r.error;
         const shot = join(HERE, "shots", `errors-${Date.now()}.png`);
         await page.screenshot({ path: shot, fullPage: true }).catch(() => {});
-        const draft = [
-          `To: lensstudio-support@snapchat.com`,
-          `Subject: Web Lens review — request for detailed error logs (Lens ID ${base.lensId})`,
-          ``,
-          `Hi Snap team,`,
-          ``,
-          `My Web Lens "${lensName}" (Lens ID: ${base.lensId}) was rejected during`,
-          `automated testing with a "Critical Runtime Error". The portal only shows the`,
-          `generic message, so could you share the detailed logs (stack trace / device /`,
-          `webview version) and which specific behaviors are considered not allowed or`,
-          `unsupported, so I can fix and resubmit?`,
-          ``,
-          `Errors visible in My Lenses:`,
-          errors.modalText || errors.inlineErrors || "(none scraped)",
-          ``,
-          `Thanks,`,
-          `Diego`,
-        ].join("\n");
-        return JSON.stringify({ ...base, errors, screenshot: shot, supportEmailDraft: draft }, null, 2);
+        const draft = supportEmailDraft(lensName, r);
+        return JSON.stringify({ ...r, screenshot: shot, supportEmailDraft: draft }, null, 2);
       })
     );
+  }
+);
+
+function supportEmailDraft(lensName, r) {
+  return [
+    `Hi Snap team,`,
+    ``,
+    `My Web Lens "${lensName}" (Lens ID: ${r.lensId}) was rejected during`,
+    `automated testing with a "Critical Runtime Error". The My Lenses portal only`,
+    `shows the generic message, so could you share the detailed logs (stack trace,`,
+    `device/webview info) and which specific behaviors are considered not allowed`,
+    `or unsupported, so I can fix and resubmit?`,
+    ``,
+    `Errors visible in My Lenses:`,
+    r.errors || "(none scraped)",
+    ``,
+    `Thanks,`,
+    `Diego`,
+  ].join("\n");
+}
+
+server.tool(
+  "gmail_login",
+  "Open a headed browser on Gmail so Diego can sign in once with diego.usdz@gmail. The session persists in .gmail-profile/ (gitignored). Required before gmail_send / auto error-report emails.",
+  {},
+  async () => {
+    return txt(
+      await withPage(false, async (page) => {
+        await page.goto(`${GMAIL}/mail/u/0/#inbox`, { waitUntil: "domcontentloaded" }).catch(() => {});
+        const deadline = Date.now() + 8 * 60 * 1000;
+        while (Date.now() < deadline) {
+          const url = page.url();
+          const logged = url.includes("mail.google.com") && !/accounts\.google|signin|ServiceLogin/.test(url)
+            && await page.evaluate(() => /inbox|recibidos|compose|redactar/i.test(document.body.innerText)).catch(() => false);
+          if (logged) return `Gmail login OK at ${url}. Session persisted in ${GMAIL_PROFILE_DIR}.`;
+          await page.waitForTimeout(2000);
+        }
+        return `Timed out waiting for Gmail login. Current: ${page.url()}`;
+      }, GMAIL_PROFILE_DIR)
+    );
+  }
+);
+
+server.tool(
+  "gmail_send",
+  "Send an email through the persisted Gmail session (diego.usdz@gmail) via the compose window. Real side effect — only call with approved content.",
+  {
+    to: z.string(),
+    subject: z.string(),
+    body: z.string(),
+  },
+  async ({ to, subject, body }) => {
+    return txt(
+      await withPage(false, async (page) => {
+        await page.goto(`${GMAIL}/mail/u/0/#inbox`, { waitUntil: "domcontentloaded" });
+        await page.waitForTimeout(5000);
+        if (/accounts\.google|signin/i.test(page.url())) return "NOT LOGGED IN — run gmail_login first.";
+        // open compose via keyboard shortcut (most robust)
+        await page.keyboard.press("c");
+        await page.waitForSelector('div[role=dialog] input[aria-label], form[role=dialog], [role=dialog]', { timeout: 15000 }).catch(() => {});
+        await page.waitForTimeout(2000);
+        // To field
+        const toField = page.locator('[role=dialog] input[aria-label*="To"], [role=dialog] input[aria-label*="Para"], [role=dialog] textarea[name="to"], [role=dialog] input[name="to"]').first();
+        if (await toField.count()) await toField.fill(to);
+        else { await page.keyboard.type(to); await page.keyboard.press("Tab"); }
+        // subject
+        const subj = page.locator('[role=dialog] input[name="subjectbox"], [role=dialog] input[placeholder*="Subject"], [role=dialog] input[placeholder*="Asunto"]').first();
+        if (await subj.count()) await subj.fill(subject); else await page.keyboard.type(subject);
+        // body
+        const bodyEl = page.locator('[role=dialog] div[role=textbox][aria-label], [role=dialog] div[contenteditable=true]').first();
+        if (await bodyEl.count()) { await bodyEl.click(); await bodyEl.fill(body); }
+        else await page.keyboard.type(body);
+        // send
+        const sendBtn = page.locator('[role=dialog] div[role=button][aria-label*="Send"], [role=dialog] div[role=button][aria-label*="Enviar"], [role=dialog] button:has-text("Send"), [role=dialog] div[data-tooltip*="Send"]').first();
+        if (!(await sendBtn.count())) return `Compose filled but no Send button found. Page: ${await page.evaluate(() => document.body.innerText.slice(0, 800))}`;
+        await sendBtn.click();
+        await page.waitForTimeout(4000);
+        return `Sent to ${to}: "${subject}"`;
+      }, GMAIL_PROFILE_DIR)
+    );
+  }
+);
+
+server.tool(
+  "mylenses_send_error_report",
+  "Full loop: scrape a rejected Lens's errors + Lens ID, draft the support email, and SEND it from diego.usdz@gmail via the persisted Gmail session. Requires mylenses session + gmail_login done once.",
+  {
+    lensName: z.string(),
+    folderName: z.string().optional(),
+  },
+  async ({ lensName, folderName }) => {
+    const report = await withPage(true, async (page) => scrapeLensErrors(page, { lensName, folderName }));
+    if (report.error) return txt(report.error);
+    const subject = `Web Lens review — request for detailed error logs (Lens ID ${report.lensId})`;
+    const body = supportEmailDraft(lensName, report);
+    // Preferred: Gmail REST API via tools/gmail-sender (OAuth tokens, gitignored).
+    const tokensPath = join(HERE, "..", "gmail-sender", ".gmail-tokens.json");
+    if (existsSync(tokensPath)) {
+      const tmp = join(HERE, "shots", `support-email-${Date.now()}.txt`);
+      spawnSync("bash", ["-c", `cat > "$1"`, "_", tmp], { input: undefined }); // noop guard
+      const { writeFileSync } = await import("node:fs");
+      writeFileSync(tmp, body);
+      const r = spawnSync("node", [join(HERE, "..", "gmail-sender", "send.mjs"),
+        "--to", "lensstudio-support@snapchat.com", "--subject", subject, "--body-file", tmp],
+        { encoding: "utf8" });
+      if (r.status === 0) return txt(JSON.stringify({ lens: report.lensId, email: r.stdout.trim(), via: "gmail-api" }, null, 2));
+      return txt(`Gmail API send failed: ${r.stderr || r.stdout}`);
+    }
+    const sent = await withPage(false, async (page) => {
+      await page.goto(`${GMAIL}/mail/u/0/#inbox`, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(5000);
+      if (/accounts\.google|signin/i.test(page.url())) {
+        // Fallback: open prefilled draft in Diego's default mail client.
+        const mailto = `mailto:lensstudio-support@snapchat.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        spawnSync("open", [mailto]);
+        return "NOT LOGGED IN to Gmail — opened a prefilled draft in your mail client instead (hit Send). For full automation run tools/gmail-sender/oauth.sh once.";
+      }
+      await page.keyboard.press("c");
+      await page.waitForTimeout(3000);
+      const toField = page.locator('[role=dialog] input[aria-label*="To"], [role=dialog] input[aria-label*="Para"], [role=dialog] input[name="to"], [role=dialog] textarea[name="to"]').first();
+      if (await toField.count()) await toField.fill("lensstudio-support@snapchat.com");
+      else await page.keyboard.type("lensstudio-support@snapchat.com");
+      await page.waitForTimeout(800);
+      const subj = page.locator('[role=dialog] input[name="subjectbox"], [role=dialog] input[placeholder*="Subject"], [role=dialog] input[placeholder*="Asunto"]').first();
+      if (await subj.count()) await subj.fill(subject);
+      const bodyEl = page.locator('[role=dialog] div[role=textbox][aria-label], [role=dialog] div[contenteditable=true]').first();
+      if (await bodyEl.count()) { await bodyEl.click(); await page.keyboard.insertText(body); }
+      const sendBtn = page.locator('[role=dialog] div[role=button][aria-label*="Send"], [role=dialog] div[role=button][aria-label*="Enviar"], [role=dialog] div[data-tooltip*="Send"]').first();
+      if (!(await sendBtn.count())) return `No Send button — check compose manually. Draft body was: ${body.slice(0, 300)}`;
+      await sendBtn.click();
+      await page.waitForTimeout(4000);
+      return "sent";
+    });
+    return txt(JSON.stringify({ lens: report.lensId, status: report.status, email: sent, subject }, null, 2));
   }
 );
 

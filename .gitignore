@@ -6,3 +6,6 @@ dist/
 .devin/mcp_config.local.json
 tools/mylenses-mcp/.browser-profile/
 tools/mylenses-mcp/shots/
+tools/gmail-sender/.gmail-tokens.json
+tools/mylenses-mcp/.gmail-profile/
+tools/google-cloud-sdk/
