@@ -601,4 +601,67 @@ server.tool(
   }
 );
 
+server.tool(
+  "weblens_record_preview",
+  "Record a REAL gameplay preview video: serves the build dir, plays it in a 720x1280 touch viewport with scripted taps for N seconds, then encodes to Snap spec (720x1280 H.264+AAC mp4, faststart, 30fps). Returns the mp4 path and any console/page errors seen during capture.",
+  {
+    dir: z.string().describe("Build dir containing index.html"),
+    outPath: z.string().describe("Output .mp4 path"),
+    seconds: z.number().default(8).describe("Recording length (Snap wants 5-10s)"),
+    taps: z.string().optional().describe("Optional JSON array of taps, e.g. [[x,y,delayMs],...] to drive the gameplay. Default: a few center-ish taps."),
+    warmupMs: z.number().default(4000).describe("Wait after load before recording interactions"),
+  },
+  async ({ dir, outPath, seconds, taps, warmupMs }) => {
+    if (!existsSync(join(dir, "index.html"))) return txt(`ERROR: no index.html in ${dir}`);
+    // serve the build
+    if (staticServer) await new Promise((r) => staticServer.close(r));
+    const port = 8471;
+    staticServer = createServer((req, res) => {
+      const p = join(dir, decodeURIComponent(req.url.split("?")[0]).replace(/^\/+/, "") || "index.html");
+      const file = existsSync(p) && statSync(p).isFile() ? p : join(dir, "index.html");
+      res.setHeader("Content-Type", MIME[extname(file)] ?? "application/octet-stream");
+      createReadStream(file).pipe(res);
+    });
+    await new Promise((r) => staticServer.listen(port, r));
+    const vidDir = join(HERE, "shots", `rec-${Date.now()}`);
+    const errors = [];
+    const browser = await chromium.launch();
+    const ctx = await browser.newContext({
+      viewport: { width: 720, height: 1280 },
+      recordVideo: { dir: vidDir, size: { width: 720, height: 1280 } },
+      hasTouch: true, isMobile: true,
+    });
+    const page = await ctx.newPage();
+    page.on("pageerror", e => errors.push("PAGEERROR: " + e.message));
+    page.on("console", m => { if (m.type() === "error") errors.push("CONSOLE: " + m.text()); });
+    await page.goto(`http://localhost:${port}/`, { waitUntil: "load" });
+    await page.waitForTimeout(warmupMs);
+    const tapList = taps ? JSON.parse(taps) : [[360, 640, 800], [360, 640, 1500], [360, 1150, 800], [360, 600, 1000]];
+    const tapBudget = Math.max(1000, seconds * 1000 - warmupMs);
+    let spent = 0;
+    while (spent < tapBudget) {
+      for (const [x, y, d] of tapList) {
+        if (spent >= tapBudget) break;
+        await page.touchscreen.tap(x, y).catch(() => {});
+        await page.waitForTimeout(d ?? 800);
+        spent += (d ?? 800);
+      }
+    }
+    await ctx.close();
+    await browser.close();
+    const { readdirSync } = await import("node:fs");
+    const webm = readdirSync(vidDir).find(f => f.endsWith(".webm"));
+    if (!webm) return txt("ERROR: no video captured");
+    const enc = spawnSync("ffmpeg", ["-y", "-i", join(vidDir, webm),
+      "-t", String(Math.min(seconds, 10)), "-vf", "scale=720:1280,fps=30",
+      "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+      "-c:a", "aac", "-shortest", outPath], { encoding: "utf8" });
+    if (enc.status !== 0) return txt(`ffmpeg failed: ${enc.stderr?.slice(-800)}`);
+    return txt(JSON.stringify({
+      preview: outPath, size: `${(statSync(outPath).size / 1048576).toFixed(2)}MB`,
+      errors: errors.length ? errors : "none",
+    }, null, 2));
+  }
+);
+
 await server.connect(new StdioServerTransport());
