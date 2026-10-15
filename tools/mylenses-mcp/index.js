@@ -23,12 +23,43 @@ const GMAIL = "https://mail.google.com";
 // Diego's primary (Apple/iCloud) address — always CC'd on support mails so
 // Snap replies land in his main inbox, not just the Gmail sender account.
 const PRIMARY_EMAIL_CC = "diego.aguirre8@icloud.com";
-const SNAP_CHROME_FILE = readFileSync(join(HERE, "snap-chrome.js"), "utf8")
-  .replace(/^const /gm, "var ");
-// Injects the chrome-defining script then calls snapChrome(mode|"off").
+// Real Snapchat UI overlays extracted from Lens Studio.app by the RE work —
+// pixel-perfect PNGs per device/mode with alpha. Served by the local static
+// server under /__snapchrome__/<Device>/<mode>.png and injected as a fixed
+// <img> covering the viewport. "camera" mode = live.png, "send" = capture.png.
+const SNAP_OVERLAYS_DIR = join(HERE, "..", "..", "research", "snap-preview-re", "assets", "devices_overlays");
+const SNAP_CHROME_MODES = { camera: "live", send: "capture", sponsored: "sponsored", connected: "connected_lenses" };
+const SNAP_CHROME_DEVICE = "iPhone 14 Pro";
+
 async function injectSnapChrome(page, mode) {
-  await page.evaluate(SNAP_CHROME_FILE);
-  await page.evaluate(`snapChrome(${JSON.stringify(mode)})`);
+  const file = SNAP_CHROME_MODES[mode];
+  await page.evaluate((f, device) => {
+    document.getElementById("snap-chrome")?.remove();
+    if (!f) return;
+    const img = document.createElement("img");
+    img.id = "snap-chrome";
+    img.src = `/__snapchrome__/${encodeURIComponent(device)}/${f}.png`;
+    img.style.cssText = "position:fixed;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;z-index:2147483647";
+    document.body.appendChild(img);
+  }, file ?? "", SNAP_CHROME_DEVICE);
+}
+
+function makeStaticServer(dir) {
+  return createServer((req, res) => {
+    const url = decodeURIComponent(req.url.split("?")[0]);
+    if (url.startsWith("/__snapchrome__/")) {
+      const f = join(SNAP_OVERLAYS_DIR, url.slice("/__snapchrome__/".length));
+      if (existsSync(f) && statSync(f).isFile()) {
+        res.setHeader("Content-Type", "image/png");
+        createReadStream(f).pipe(res);
+      } else res.writeHead(404).end();
+      return;
+    }
+    const p = join(dir, url.replace(/^\/+/, "") || "index.html");
+    const file = existsSync(p) && statSync(p).isFile() ? p : join(dir, "index.html");
+    res.setHeader("Content-Type", MIME[extname(file)] ?? "application/octet-stream");
+    createReadStream(file).pipe(res);
+  });
 }
 
 const MIME = {
@@ -139,12 +170,7 @@ server.tool(
   async ({ dir, port }) => {
     if (!existsSync(join(dir, "index.html"))) return txt(`ERROR: no index.html in ${dir}`);
     if (staticServer) await new Promise((r) => staticServer.close(r));
-    staticServer = createServer((req, res) => {
-      const p = join(dir, decodeURIComponent(req.url.split("?")[0]).replace(/^\/+/, "") || "index.html");
-      const file = existsSync(p) && statSync(p).isFile() ? p : join(dir, "index.html");
-      res.setHeader("Content-Type", MIME[extname(file)] ?? "application/octet-stream");
-      createReadStream(file).pipe(res);
-    });
+    staticServer = makeStaticServer(dir);
     await new Promise((r) => staticServer.listen(port, r)).catch(async () => {
       await new Promise((r) => staticServer.listen(0, r));
     });
@@ -626,12 +652,7 @@ server.tool(
     // serve the build
     if (staticServer) await new Promise((r) => staticServer.close(r));
     let port = 0;
-    staticServer = createServer((req, res) => {
-      const p = join(dir, decodeURIComponent(req.url.split("?")[0]).replace(/^\/+/, "") || "index.html");
-      const file = existsSync(p) && statSync(p).isFile() ? p : join(dir, "index.html");
-      res.setHeader("Content-Type", MIME[extname(file)] ?? "application/octet-stream");
-      createReadStream(file).pipe(res);
-    });
+    staticServer = makeStaticServer(dir);
     await new Promise((r) => staticServer.listen(0, r));
     port = staticServer.address().port;
     const vidDir = join(HERE, "shots", `rec-${Date.now()}`);
@@ -686,19 +707,14 @@ server.tool(
   {
     dir: z.string().describe("Build dir containing index.html"),
     headed: z.boolean().default(true).describe("Show the window so a human can play too"),
-    snapChrome: z.string().optional().describe('Overlay the simulated Snapchat camera UI on the game: "camera" (carousel+nav) or "send" (Send-To bar). Omit for clean recording — preview videos for submission must run WITHOUT the overlay.'),
+    snapChrome: z.string().optional().describe('Overlay the simulated Snapchat camera UI on the game: "camera" (live), "send" (capture), "sponsored", "connected". Omit for clean recording — preview videos for submission must run WITHOUT the overlay.'),
   },
   async ({ dir, headed, snapChrome }) => {
     if (!existsSync(join(dir, "index.html"))) return txt(`ERROR: no index.html in ${dir}`);
     if (game) await gameplay_teardown();
     if (staticServer) await new Promise((r) => staticServer.close(r));
     let port = 0;
-    staticServer = createServer((req, res) => {
-      const p = join(dir, decodeURIComponent(req.url.split("?")[0]).replace(/^\/+/, "") || "index.html");
-      const file = existsSync(p) && statSync(p).isFile() ? p : join(dir, "index.html");
-      res.setHeader("Content-Type", MIME[extname(file)] ?? "application/octet-stream");
-      createReadStream(file).pipe(res);
-    });
+    staticServer = makeStaticServer(dir);
     await new Promise((r) => staticServer.listen(0, r));
     port = staticServer.address().port;
     const vidDir = join(HERE, "shots", `game-${Date.now()}`);
@@ -788,8 +804,8 @@ server.tool(
 
 server.tool(
   "gameplay_chrome",
-  'Toggle the simulated Snap camera chrome overlay in the live session: "camera", "send", or "off". Returns a fresh frame so you can see what the game looks like behind Snap\'s UI.',
-  { mode: z.string().describe('"camera" | "send" | "off"') },
+  'Toggle the simulated Snap camera chrome overlay in the live session: "camera", "send", "sponsored", "connected", "off". Returns a fresh frame so you can see what the game looks like behind Snap\'s UI.',
+  { mode: z.string().describe('"camera" | "send" | "sponsored" | "connected" | "off"') },
   async ({ mode }) => {
     const g = await gameplay_need();
     await injectSnapChrome(g.page, mode);
@@ -850,12 +866,7 @@ async function captureGameFrame(dir, warmupMs, tapList) {
   if (!existsSync(join(dir, "index.html"))) return null;
   if (staticServer) await new Promise((r) => staticServer.close(r));
   let port = 0;
-  staticServer = createServer((req, res) => {
-    const p = join(dir, decodeURIComponent(req.url.split("?")[0]).replace(/^\/+/, "") || "index.html");
-    const file = existsSync(p) && statSync(p).isFile() ? p : join(dir, "index.html");
-    res.setHeader("Content-Type", MIME[extname(file)] ?? "application/octet-stream");
-    createReadStream(file).pipe(res);
-  });
+  staticServer = makeStaticServer(dir);
   await new Promise((r) => staticServer.listen(0, r));
   port = staticServer.address().port;
   const browser = await chromium.launch();
