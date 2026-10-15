@@ -64,3 +64,14 @@
   Game Challenge). `mylenses_error_report` ya acepta `folderName`.
 - Ojo: las URLs directas de folders/lenses redirigen a /home — hay que
   navegar por la UI (home → click "Lens Folders" → click folder).
+
+## Update — MCP upload/update/status reales (15 oct 2026)
+
+- `mylenses_upload` reescrito con el flujo probado E2E (radio submit → folder →
+  continue → zip/name/icon/video+Apply → checklist → Submit → Publishing modal
+  → visibility → confirm). `submitForReview` sigue detrás de flag.
+- `mylenses_update`: "Update an existing Lens" (radio 1) → folder → lens →
+  mismo form. Cada update = nueva versión = nueva review.
+- `mylenses_status`: Lens ID + status + visibilidad desde la página del Lens,
+  buscando el lens en todos los folders si no se pasa `folderName`.
+- Helpers internos: `openSubmitFlow` y `fillAndSubmit` compartidos.

@@ -179,61 +179,161 @@ server.tool(
   }
 );
 
+// Navigates to Web Lenses > pick flow (new|update) > pick folder > Continue.
+// Returns true when the submit form is on screen.
+async function openSubmitFlow(page, { flow, folderName, lensName }) {
+  await page.goto(`${MYLENSES}/home`, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("text=Welcome", { timeout: 30000 });
+  await page.click("text=Web Lenses");
+  await page.waitForSelector("text=Submit a new Web Lens", { timeout: 20000 });
+  await page.click("text=Accept Cookies").catch(() => {});
+  const radios = page.locator("input[type=radio]");
+  const idx = flow === "update" ? 1 : 0;
+  await radios.nth(idx).check().catch(() => radios.nth(idx).click());
+  await page.waitForTimeout(1000);
+  if (folderName) await page.click(`text=${folderName}`).catch(() => {});
+  if (lensName) { await page.waitForTimeout(2000); await page.click(`text=${lensName}`).catch(() => {}); }
+  // a stray feedback textarea intercepts pointer events — click via JS
+  await page.evaluate(() => document.querySelector('[data-testid="web-lens-folder-continue"]')?.click());
+  await page.waitForSelector('[data-testid="web-lens-submit"]', { timeout: 30000 });
+  return true;
+}
+
+// Fills the submit form. Optionally clicks Submit and confirms the modal.
+async function fillAndSubmit(page, { zipPath, name, iconPath, videoPath, visibility, submitForReview }) {
+  const log = [];
+  await page.evaluate(() => { for (const b of document.querySelectorAll("button")) if (b.innerText.trim() === "Close") b.click(); });
+  if (zipPath) {
+    await page.locator('input[type=file][accept=".zip"]').setInputFiles(zipPath);
+    await page.waitForSelector(`text=${basename(zipPath)}`, { timeout: 90000 });
+    log.push(`zip uploaded: ${basename(zipPath)}`);
+  }
+  if (name) {
+    await page.locator("input[type=text]").first().fill(name);
+    log.push(`name: ${name}`);
+  }
+  if (iconPath) {
+    await page.locator('input[type=file][accept="image/png"]').setInputFiles(iconPath);
+    await page.waitForTimeout(3000);
+    log.push("icon uploaded");
+  }
+  if (videoPath) {
+    await page.click("text=Change Lens Preview").catch(() => page.click("text=Add Snapchat Lens Preview"));
+    await page.waitForTimeout(1500);
+    await page.locator('input[type=file][accept*="video"]').setInputFiles(videoPath);
+    await page.waitForSelector('button:has-text("Apply")', { timeout: 60000 });
+    await page.waitForTimeout(3000);
+    await page.click('button:has-text("Apply")');
+    await page.waitForTimeout(5000);
+    log.push("preview video attached + applied");
+  }
+  const checklist = await page.evaluate(() =>
+    document.body.innerText.match(/Ready to submit[\s\S]{0,1200}/)?.[0] ?? "checklist not found");
+  if (!submitForReview) return { log, checklist, submitted: false };
+  await page.evaluate(() => document.querySelector('[data-testid="web-lens-submit"]').click());
+  await page.waitForSelector("text=Publishing Lens", { timeout: 30000 });
+  if (visibility) await page.click(`text=${visibility}`).catch(() => {});
+  await page.evaluate(() => {
+    const btns = [...document.querySelectorAll("button")].filter(b => /^(publish|submit|confirm)$/i.test(b.innerText.trim()));
+    btns[btns.length - 1]?.click();
+  });
+  await page.waitForTimeout(10000);
+  log.push(`submitted, visibility=${visibility ?? "default"}`);
+  return { log, checklist, submitted: true, finalUrl: page.url() };
+}
+
 server.tool(
   "mylenses_upload",
-  "Upload a Web Lens zip to My Lenses (new Web Lens flow) with optional icon and preview video. Best-effort UI automation; returns page state on each step. Does NOT submit for review unless submitForReview=true.",
+  "Submit a NEW Web Lens to My Lenses: zip + name + icon + preview video into a Lens Folder, optional Game Lens visibility, then Submit or stop at the filled form. Uses the proven real selectors.",
   {
     zipPath: z.string(),
-    name: z.string().describe("Lens name"),
+    name: z.string().max(18).describe("Lens name (18 chars max)"),
+    folderName: z.string().describe("Lens Folder, e.g. 'AR 2025'"),
     iconPath: z.string().optional().describe("512x512 PNG"),
-    videoPath: z.string().optional().describe("720x1280 5s mp4"),
-    submitForReview: z.boolean().default(false).describe("If true, clicks submit for review. Only use with an approved GATE."),
+    videoPath: z.string().optional().describe("720x1280 5-10s mp4 H.264/AAC"),
+    visibility: z.enum(["Public", "Hidden", "Offline"]).default("Hidden"),
+    submitForReview: z.boolean().default(false).describe("If true, clicks through Submit + Publishing modal. GATE required."),
   },
-  async ({ zipPath, name, iconPath, videoPath, submitForReview }) => {
-    for (const p of [zipPath, iconPath, videoPath].filter(Boolean))
+  async (args) => {
+    for (const p of [args.zipPath, args.iconPath, args.videoPath].filter(Boolean))
       if (!existsSync(p)) return txt(`ERROR: file not found: ${p}`);
-    const shots = [];
     return txt(
-      await withPage(false, async (page) => { // headed: Snap may challenge headless
-        const shot = async (tag) => {
-          const f = join(HERE, "shots", `${tag}-${Date.now()}.png`);
-          await page.screenshot({ path: f }).catch(() => {});
-          shots.push(f);
-        };
+      await withPage(true, async (page) => {
+        await openSubmitFlow(page, { flow: "new", folderName: args.folderName });
+        const res = await fillAndSubmit(page, args);
+        return JSON.stringify(res, null, 2);
+      })
+    );
+  }
+);
+
+server.tool(
+  "mylenses_update",
+  "Update an EXISTING Web Lens: new zip and/or new icon/video. Each update is a new version that goes through review again. submitForReview=true clicks through.",
+  {
+    lensName: z.string().describe("Existing lens name, e.g. 'Argon Towers Test'"),
+    folderName: z.string().describe("Lens Folder the lens lives in"),
+    zipPath: z.string().optional(),
+    iconPath: z.string().optional(),
+    videoPath: z.string().optional(),
+    visibility: z.enum(["Public", "Hidden", "Offline"]).default("Hidden"),
+    submitForReview: z.boolean().default(false),
+  },
+  async (args) => {
+    for (const p of [args.zipPath, args.iconPath, args.videoPath].filter(Boolean))
+      if (!existsSync(p)) return txt(`ERROR: file not found: ${p}`);
+    return txt(
+      await withPage(true, async (page) => {
+        await openSubmitFlow(page, { flow: "update", folderName: args.folderName, lensName: args.lensName });
+        const res = await fillAndSubmit(page, args);
+        return JSON.stringify(res, null, 2);
+      })
+    );
+  }
+);
+
+server.tool(
+  "mylenses_status",
+  "Get a Lens's review status (Processing/Published/Invalid) and Lens ID from its page in a Lens Folder.",
+  {
+    lensName: z.string(),
+    folderName: z.string().optional(),
+  },
+  async ({ lensName, folderName }) => {
+    return txt(
+      await withPage(true, async (page) => {
         await page.goto(`${MYLENSES}/home`, { waitUntil: "domcontentloaded" });
-        let s = await pageSummary(page);
-        if (/sign in|log in|iniciar/i.test(s.bodyText) || /accounts\.snapchat/.test(s.url))
-          return `NOT LOGGED IN — run mylenses_login first.\n${s.url}`;
-        await shot("home");
-        const log = [`start: ${s.url}`];
-        // Try to start "New Lens" / "Web Lens" creation — selectors are best-effort
-        // because My Lenses has no public API and the UI may change.
-        const createBtn = page.getByRole("button", { name: /new lens|create|web lens/i })
-          .or(page.getByRole("link", { name: /new lens|create|web lens/i })).first();
-        if (await createBtn.count()) {
-          await createBtn.click();
-          await page.waitForTimeout(1500);
-          log.push("clicked create/new lens");
-        } else {
-          log.push("no create button found");
+        await page.waitForSelector("text=Welcome", { timeout: 30000 });
+        await page.click("text=Lens Folders");
+        await page.waitForTimeout(4000);
+        const folders = folderName ? [folderName] :
+          await page.evaluate(() => [...document.querySelectorAll("a")]
+            .map(a => a.innerText.trim())
+            .filter(t => t && !/Home|Lens Folders|Insights|Monetization|Asset|Hosted|Web Lenses|Scheduler|Apps|Privacy|Terms|Cookie|Invite|Manage|Create/.test(t))
+            .slice(0, 10));
+        for (const f of folders) {
+          await page.goto(`${MYLENSES}/home`, { waitUntil: "domcontentloaded" });
+          await page.waitForSelector("text=Welcome", { timeout: 30000 });
+          await page.click("text=Lens Folders");
+          await page.waitForTimeout(3000);
+          await page.click(`text=${f}`).catch(() => {});
+          await page.waitForTimeout(4000);
+          if (!(await page.locator(`text=${lensName}`).count())) continue;
+          const row = await page.evaluate((n) => {
+            const el = [...document.querySelectorAll("tr, li, [class*=row]")].find(r => r.innerText?.includes(n));
+            return el?.innerText.replace(/\n/g, " | ").slice(0, 300) ?? null;
+          }, lensName);
+          await page.click(`text=${lensName}`);
+          await page.waitForTimeout(5000);
+          const detail = await page.evaluate(() => ({
+            url: location.href,
+            lensId: document.body.innerText.match(/Lens ID:\s*([0-9a-f-]+)/i)?.[1] ?? null,
+            status: document.body.innerText.match(/\n(Processing|Published|Invalid|Live|Rejected)\n/)?.[1] ?? null,
+            visibility: document.body.innerText.match(/\n(Public|Hidden|Offline)\n/)?.[1] ?? null,
+          }));
+          return JSON.stringify({ folder: f, row, detail }, null, 2);
         }
-        // file inputs: try zip upload
-        const fileInputs = page.locator("input[type=file]");
-        const n = await fileInputs.count();
-        log.push(`file inputs: ${n}`);
-        if (n > 0) await fileInputs.first().setInputFiles(zipPath);
-        // name field
-        const nameField = page.getByPlaceholder(/name/i).or(page.locator("input[name*=name i]")).first();
-        if (await nameField.count()) { await nameField.fill(name); log.push("filled name"); }
-        if (iconPath && n > 1) { await fileInputs.nth(1).setInputFiles(iconPath); log.push("uploaded icon"); }
-        if (videoPath && n > 2) { await fileInputs.nth(2).setInputFiles(videoPath); log.push("uploaded video"); }
-        if (submitForReview) {
-          const submit = page.getByRole("button", { name: /submit|review|publish/i }).first();
-          if (await submit.count()) { await submit.click(); log.push("clicked submit for review"); }
-        }
-        await shot("after-upload");
-        s = await pageSummary(page);
-        return [...log, "", "PAGE STATE:", JSON.stringify(s, null, 2), "", "screenshots:", ...shots].join("\n");
+        return `Lens "${lensName}" not found in folders: ${folders.join(", ")}`;
       })
     );
   }
