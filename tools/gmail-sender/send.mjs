@@ -31,12 +31,13 @@ const tok = await tokRes.json();
 if (!tok.access_token) { console.error("token refresh failed:", JSON.stringify(tok)); process.exit(1); }
 if (tok.refresh_token) { t.refresh_token = tok.refresh_token; writeFileSync(TOK, JSON.stringify(t)); }
 
-const to = arg("to"), subject = arg("subject");
+const to = arg("to"), subject = arg("subject"), cc = arg("cc");
 const body = arg("body") ?? (arg("body-file") ? readFileSync(arg("body-file"), "utf8") : null);
 if (!to || !subject || !body) { console.error("need --to --subject --body|--body-file"); process.exit(1); }
 
 const mime = [
-  `To: ${to}`, `Subject: ${subject}`, "Content-Type: text/plain; charset=UTF-8",
+  `To: ${to}`, ...(cc ? [`Cc: ${cc}`] : []), `Subject: ${subject}`,
+  "Content-Type: text/plain; charset=UTF-8",
   "MIME-Version: 1.0", "", body,
 ].join("\r\n");
 const raw = Buffer.from(mime).toString("base64url");

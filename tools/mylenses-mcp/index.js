@@ -20,6 +20,9 @@ const PROFILE_DIR = join(HERE, ".browser-profile");
 const GMAIL_PROFILE_DIR = join(HERE, ".gmail-profile");
 const MYLENSES = "https://my-lenses.snapchat.com";
 const GMAIL = "https://mail.google.com";
+// Diego's primary (Apple/iCloud) address — always CC'd on support mails so
+// Snap replies land in his main inbox, not just the Gmail sender account.
+const PRIMARY_EMAIL_CC = "diego.aguirre8@icloud.com";
 
 const MIME = {
   ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript",
@@ -517,7 +520,8 @@ server.tool(
       const { writeFileSync } = await import("node:fs");
       writeFileSync(tmp, body);
       const r = spawnSync("node", [join(HERE, "..", "gmail-sender", "send.mjs"),
-        "--to", "lensstudio-support@snapchat.com", "--subject", subject, "--body-file", tmp],
+        "--to", "lensstudio-support@snapchat.com", "--cc", PRIMARY_EMAIL_CC,
+        "--subject", subject, "--body-file", tmp],
         { encoding: "utf8" });
       if (r.status === 0) return txt(JSON.stringify({ lens: report.lensId, email: r.stdout.trim(), via: "gmail-api" }, null, 2));
       return txt(`Gmail API send failed: ${r.stderr || r.stdout}`);
@@ -527,7 +531,7 @@ server.tool(
       await page.waitForTimeout(5000);
       if (/accounts\.google|signin/i.test(page.url())) {
         // Fallback: open prefilled draft in Diego's default mail client.
-        const mailto = `mailto:lensstudio-support@snapchat.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        const mailto = `mailto:lensstudio-support@snapchat.com?cc=${encodeURIComponent(PRIMARY_EMAIL_CC)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
         spawnSync("open", [mailto]);
         return "NOT LOGGED IN to Gmail — opened a prefilled draft in your mail client instead (hit Send). For full automation run tools/gmail-sender/oauth.sh once.";
       }
