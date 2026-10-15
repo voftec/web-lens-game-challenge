@@ -8,40 +8,16 @@
      tooltip/banners/toasts repositioned inside the band. -->
 <style>
 @media (max-width: 500px) {
-  .fr-top-bar {
-    top: calc(64px + env(safe-area-inset-top, 0px)) !important;
-    left: 50% !important; right: auto !important;
-    transform: translateX(-50%);
-    width: 210px !important;
-    padding: 7px 12px 8px !important;
-    flex-wrap: wrap !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    row-gap: 4px !important;
-    background: rgba(10, 18, 6, 0.62);
-    border: 1.5px solid rgba(255, 255, 255, 0.16);
-    border-radius: 18px;
-    backdrop-filter: blur(4px);
-  }
-  .fr-center-cluster {
-    order: -1;
-    flex: 0 0 100%;
-    flex-direction: row !important;
-    flex-wrap: wrap;
-    justify-content: space-between !important;
-    align-items: center !important;
-    gap: 4px;
-  }
-  .fr-round-label { font-size: 16px !important; order: 1; }
-  .fr-score-value { font-size: 16px !important; order: 2; }
-  .fr-wave-progress-wrap { width: 100% !important; height: 4px !important; order: 3; margin-top: 2px !important; }
-  .fr-gold-cluster, .fr-lives-cluster {
-    transform: none !important;
-    gap: 4px !important;
-  }
-  .fr-gold-value, .fr-lives-value { font-size: 20px !important; }
-  .fr-dollar-emblem { width: 20px !important; height: 23px !important; }
-  .fr-heart-icon { width: 22px !important; height: 21px !important; }
+  .fr-top-bar { padding-top: calc(68px + env(safe-area-inset-top, 0px)) !important;
+                padding-left: 48px !important; padding-right: 56px !important;
+                align-items: flex-start !important; }
+  .fr-gold-cluster { transform: translateY(52px) scale(0.78); gap: 5px !important; }
+  .fr-lives-cluster { transform: translateY(52px) scale(0.78); gap: 5px !important; }
+  .fr-dollar-emblem { width: 30px !important; height: 34px !important; }
+  .fr-heart-icon { width: 36px !important; height: 34px !important; }
+  .fr-score-value { font-size: 22px !important; }
+  .fr-round-label { font-size: 20px !important; order: -2; }
+  .fr-wave-progress-wrap { width: 100px !important; order: -1; }
   .fr-tower-dock {
     left: 50% !important; right: auto !important;
     bottom: calc(196px + env(safe-area-inset-bottom, 0px)) !important;
