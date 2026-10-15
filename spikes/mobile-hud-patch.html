@@ -1,20 +1,37 @@
 <!-- Mobile HUD patch — inject into a build's index.html before </head>.
      Keeps all HUD inside the measured Snapchat playable band
      (occlusion measured from the real iPhone 14 Pro overlay PNG:
-      blocked y0-59 + icons to ~y95, carousel ~y680, navbar y770-852;
-      safe HUD zone approx y100-660 of 852 CSS px). -->
+      blocked y0-59 + icons to ~y95, carousel ~y680, navbar y770-852).
+     Layout: slim top strip in the free corridor between icon columns,
+     tower dock as a centered card floating above the carousel,
+     control row as a compact pill above the dock. -->
 <style>
 @media (max-width: 500px) {
-  .fr-top-bar { padding-top: calc(96px + env(safe-area-inset-top, 0px)) !important;
-                padding-left: 76px !important; padding-right: 76px !important; }
-  .fr-gold-value { font-size: 24px !important; }
-  .fr-dollar-emblem { width: 30px !important; height: 35px !important; }
-  .fr-lives-value { font-size: 24px !important; }
-  .fr-round-label { font-size: 24px !important; }
-  .fr-tower-dock { bottom: calc(190px + env(safe-area-inset-bottom, 0px)) !important;
-                   transform: scale(0.72); transform-origin: bottom right; }
-  .fr-bottom-left-controls { bottom: calc(252px + env(safe-area-inset-bottom, 0px)) !important;
-                             transform: scale(0.82); transform-origin: bottom left;
-                             gap: 6px !important; }
+  .fr-top-bar { padding-top: calc(98px + env(safe-area-inset-top, 0px)) !important;
+                padding-left: 86px !important; padding-right: 86px !important; }
+  .fr-gold-cluster { transform: scale(0.8); }
+  .fr-lives-cluster { transform: scale(0.8); }
+  .fr-score-value { font-size: 24px !important; }
+  .fr-round-label { font-size: 20px !important; }
+  .fr-wave-progress-wrap { width: 100px !important; }
+  .fr-tower-dock {
+    left: 50% !important; right: auto !important;
+    bottom: calc(196px + env(safe-area-inset-bottom, 0px)) !important;
+    transform: translateX(-50%) scale(0.7);
+    transform-origin: bottom center;
+    background: rgba(10, 18, 6, 0.55);
+    border: 2px solid rgba(255, 255, 255, 0.14);
+    border-radius: 44px;
+    padding: 8px 14px !important;
+    gap: 12px !important;
+    backdrop-filter: blur(3px);
+  }
+  .fr-bottom-left-controls {
+    left: 50% !important;
+    bottom: calc(272px + env(safe-area-inset-bottom, 0px)) !important;
+    transform: translateX(-50%) scale(0.78);
+    transform-origin: bottom center;
+    gap: 8px !important;
+  }
 }
 </style>
