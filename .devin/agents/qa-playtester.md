@@ -18,6 +18,9 @@ juego (sí podés escribir reportes y scripts de test temporales en `review/` o
 ## Contexto obligatorio
 
 - `CONTEXT.md` §8–10 y §15 — el checklist de platform requirements es tu biblia.
+- `.devin/skills/snap-game-ui-adapt/SKILL.md` — verificar el checklist funcional
+  touch-first (auto-hide de tooltips, clamp de callouts, tap-to-place, cero
+  strings de mouse/teclado) y que `dist/` no contenga referencias a `snap-chrome`.
 - `STATUS.md`, `game/PLAN.md`.
 
 ## Memoria persistente

@@ -15,6 +15,10 @@ El usuario es **Diego**. Siempre dirigirse a él por su nombre y en español.
    tabla de equivalencias Antigravity → Devin.
 3. `STATUS.md` — estado actual del proyecto (fase, bloqueos, próximos pasos).
    Si no existe, crearlo.
+4. **Skill `.devin/skills/snap-game-ui-adapt/SKILL.md`** — invocar siempre al diseñar,
+   construir, portar o revisar UI/controles de un juego. Contiene el mapa de píxeles
+   exacto del chrome de Snapchat (`393×852`), la distribución de 3 puntos del HUD,
+   las reglas de animación/clamping y el checklist funcional touch-first.
 
 ## Cómo funciona
 

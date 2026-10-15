@@ -26,6 +26,9 @@ en un plan de juego ejecutable.
   implementación, más categorías de Social Features y métricas (long plays, retention).
 - `ARGON.md` — cómo trabaja Argon en builds 3D, workflows oficiales, y el showcase
   `resources/argon-games/` (patrones a robar).
+- `.devin/skills/snap-game-ui-adapt/SKILL.md` — diseñar el HUD y los controles desde
+  cero para el mapa de oclusión real de Snapchat (`393×852`, banda libre `y=180..540`,
+  HUD superior en escalera de 3 puntos, dock en `y=540..660`).
 - `STATUS.md` y `game/PLAN.md` si existen.
 
 ## Memoria persistente

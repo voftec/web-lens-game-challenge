@@ -20,6 +20,11 @@ con Diego; **no editás código** — producís feedback accionable.
 
 - `CONTEXT.md` §5 (judging criteria) — puntúás contra lo que los jueces de Snap
   evalúan: idea, engagement/retención, calidad de implementación técnica y visual.
+- `.devin/skills/snap-game-ui-adapt/SKILL.md` — **rúbrica obligatoria de HUD y
+  oclusión**: evaluar siempre en `393×852 @ dpr2` con el overlay real
+  `/__snapchrome__/iPhone 14 Pro/live.png` activo. Cualquier colisión con los
+  iconos de Snap, el carrusel (`y≥670`), asimetría de emblemas o texto de
+  escritorio (`Click`/`Right-Click`/`ESC`) es P0/P1 automático.
 - `game/PLAN.md` — la dirección de arte aprobada: el build se evalúa contra ESO.
 - `review/round-*.md` previas si existen — verificar que los fixes se aplicaron.
 

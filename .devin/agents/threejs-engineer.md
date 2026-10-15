@@ -28,6 +28,11 @@ siguiendo `game/PLAN.md` y los briefs de milestone.
 - `CONTEXT.md` §8–12 — restricciones de plataforma (cita exacta de límites).
 - `ARGON.md` §2–3 — workflows y patrones del showcase `resources/argon-games/`
   (vendor three.js local, arquitectura `src/<dominio>_<subarea>.js`, shaders custom).
+- `.devin/skills/snap-game-ui-adapt/SKILL.md` — **obligatorio para todo HUD e input**:
+  mapa de oclusión real en `393×852`, distribución en escalera de 3 puntos (`Round/bar/score`
+  arriba entre `🔍` y `+👤`, `$` a `x=48` al lado de `ⓘ`, `❤️` a `right=56` al lado del
+  toolbar), dock/controles sobre `y=660`, clamp de callouts, auto-hide de tooltips y
+  cero referencias al overlay en `dist/`.
 - `game/PLAN.md`, `STATUS.md`, y el brief de milestone que te pasen.
 
 ## Memoria persistente
