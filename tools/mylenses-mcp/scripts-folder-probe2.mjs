@@ -1,0 +1,14 @@
+import { chromium } from "playwright";
+const ctx = await chromium.launchPersistentContext(".browser-profile", { headless: true });
+const page = ctx.pages()[0] ?? await ctx.newPage();
+page.setDefaultTimeout(30000);
+await page.goto("https://my-lenses.snapchat.com/home", { waitUntil: "domcontentloaded" });
+await page.waitForSelector("text=Welcome");
+await page.click("text=Lens Folders");
+await page.waitForSelector('[data-testid="lens-folders-header-create-button"]');
+await page.click('[data-testid="lens-folders-header-create-button"]');
+await new Promise(r => setTimeout(r, 2500));
+const els = await page.evaluate(() => Array.from(document.querySelectorAll(".ant-modal input, .ant-modal button, [role=dialog] input, [role=dialog] button, input, button")).map(e => `${e.tagName}[${e.getAttribute("type")||""}|${e.getAttribute("data-testid")||""}] "${(e.innerText||e.getAttribute("placeholder")||"").slice(0,60)}"`).slice(0,40));
+console.log(els.join("\n"));
+await page.screenshot({ path: "shots/create-folder-dialog.png" });
+await ctx.close();

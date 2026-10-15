@@ -1,0 +1,16 @@
+import { chromium } from "playwright";
+const ctx = await chromium.launchPersistentContext(".browser-profile", { headless: true });
+const page = ctx.pages()[0] ?? await ctx.newPage();
+page.setDefaultTimeout(30000);
+await page.goto("https://my-lenses.snapchat.com/home", { waitUntil: "domcontentloaded" });
+await page.waitForSelector("text=Welcome");
+await page.click("text=Lens Folders");
+await page.waitForSelector('[data-testid="lens-folders-header-create-button"]', { timeout: 20000 });
+await page.click('[data-testid="lens-folders-header-create-button"]');
+await page.waitForSelector('[data-testid="lens-folders-modal-create-button"]', { timeout: 10000 });
+await page.locator("input[type=text]").last().fill("Game Challenge");
+await page.click('[data-testid="lens-folders-modal-create-button"]');
+await page.waitForTimeout(4000);
+console.log("visible:", await page.evaluate(() => document.body.innerText.includes("Game Challenge")));
+console.log((await page.evaluate(() => document.body.innerText.trim().slice(0,600))));
+await ctx.close();

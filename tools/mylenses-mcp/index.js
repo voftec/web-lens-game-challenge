@@ -330,4 +330,50 @@ server.tool(
   }
 );
 
+server.tool(
+  "mylenses_list_folders",
+  "List Lens Folders in My Lenses (folders are where Lenses live; needed before upload/error_report). Returns folder names.",
+  {},
+  async () => {
+    return txt(
+      await withPage(true, async (page) => {
+        await page.goto(`${MYLENSES}/home`, { waitUntil: "domcontentloaded" });
+        await page.waitForSelector("text=Welcome", { timeout: 30000 });
+        await page.click("text=Lens Folders");
+        await page.waitForTimeout(4000);
+        const folders = await page.evaluate(() =>
+          [...document.querySelectorAll("a")]
+            .map(a => a.innerText.trim())
+            .filter(t => t && !/Home|Lens Folders|Insights|Monetization|Asset|Hosted|Web Lenses|Scheduler|Apps|Privacy|Terms|Cookie|Invite|Manage/.test(t)));
+        return JSON.stringify({ url: page.url(), folders }, null, 2);
+      })
+    );
+  }
+);
+
+server.tool(
+  "mylenses_create_folder",
+  "Create a new Lens Folder in My Lenses. Folders group Lenses; a folder must be selected in the Web Lens submit flow.",
+  { folderName: z.string().describe("Name for the new Lens Folder") },
+  async ({ folderName }) => {
+    return txt(
+      await withPage(true, async (page) => {
+        await page.goto(`${MYLENSES}/home`, { waitUntil: "domcontentloaded" });
+        await page.waitForSelector("text=Welcome", { timeout: 30000 });
+        await page.click("text=Lens Folders");
+        await page.waitForSelector('[data-testid="lens-folders-header-create-button"]', { timeout: 20000 });
+        await page.click('[data-testid="lens-folders-header-create-button"]');
+        await page.waitForSelector('[data-testid="lens-folders-modal-create-button"]', { timeout: 10000 });
+        await page.locator("input[type=text]").last().fill(folderName);
+        await page.click('[data-testid="lens-folders-modal-create-button"]');
+        await page.waitForTimeout(4000);
+        const ok = await page.evaluate((f) => document.body.innerText.includes(f), folderName);
+        return ok
+          ? `Folder "${folderName}" created (visible at ${page.url()})`
+          : `Create dialog submitted but folder not visible yet. Page text:\n${(await page.evaluate(() => document.body.innerText.slice(0, 1500)))}`;
+      })
+    );
+  }
+);
+
 await server.connect(new StdioServerTransport());

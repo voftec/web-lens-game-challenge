@@ -1,0 +1,14 @@
+import { chromium } from "playwright";
+const ctx = await chromium.launchPersistentContext(".browser-profile", { headless: true });
+const page = ctx.pages()[0] ?? await ctx.newPage();
+page.setDefaultTimeout(30000);
+await page.goto("https://my-lenses.snapchat.com/home", { waitUntil: "domcontentloaded" });
+await page.waitForSelector("text=Welcome");
+await page.click("text=Web Lenses");
+await page.waitForSelector("text=Submit a new Web Lens");
+await page.click("text=Create a new Lens Folder").catch(e=>console.log("click:",e.message.split("\n")[0]));
+await new Promise(r => setTimeout(r, 2500));
+const els = await page.evaluate(() => Array.from(document.querySelectorAll("input,button,.ant-modal")).map(e => `${e.tagName}[${e.getAttribute("type")||""}|${e.getAttribute("data-testid")||""}] "${(e.innerText||e.getAttribute("placeholder")||"").slice(0,60)}"`).filter(s=>!/^\w+\[\|?\] ""$/.test(s)).slice(0,40));
+console.log(els.join("\n"));
+await page.screenshot({ path: "shots/create-folder.png" });
+await ctx.close();

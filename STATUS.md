@@ -53,3 +53,14 @@
 - Nuevo tool MCP `mylenses_error_report`: dado lensName+folderName scrapea
   Lens ID, status y errores del modal, y devuelve un draft de email a soporte
   con el Lens ID pidiendo logs detallados.
+
+## Update — MCP tools de folders (15 oct 2026)
+
+- `mylenses_list_folders`: lista folders via nav "Lens Folders".
+- `mylenses_create_folder`: crea folder — selectores reales:
+  `[data-testid="lens-folders-header-create-button"]` → input[type=text] →
+  `[data-testid="lens-folders-modal-create-button"]`.
+- Creado folder **"Game Challenge"** (folders actuales: AR 2025, Games,
+  Game Challenge). `mylenses_error_report` ya acepta `folderName`.
+- Ojo: las URLs directas de folders/lenses redirigen a /home — hay que
+  navegar por la UI (home → click "Lens Folders" → click folder).
