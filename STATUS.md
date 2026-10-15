@@ -11,6 +11,7 @@
 - [x] Repo privado en GitHub (voftec/web-lens-game-challenge)
 - [x] Harness de agentes configurado (`.devin/agents/`, `AGENTS.md`)
 - [x] Spike de porting: Argon Towers → zip Web Lens válido 5.6MB (`SPIKE-PORTING.md`)
+- [x] MCP local `mylenses` (`tools/mylenses-mcp/`): validate_zip, serve, login, list, upload, dump_ui — sesión de Snap en `.browser-profile/` (gitignored)
 - [ ] Concepto del juego aprobado (GATE)
 - [ ] Build del juego (`game/`)
 - [ ] Lens publicado en My Lenses

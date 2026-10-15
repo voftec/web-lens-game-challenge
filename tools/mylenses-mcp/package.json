@@ -1,0 +1,16 @@
+{
+  "name": "mylenses-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server to validate Web Lens zips and automate My Lenses (upload/status) via a persistent Playwright session",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "login": "node scripts/login.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "playwright": "^1.40.0"
+  }
+}

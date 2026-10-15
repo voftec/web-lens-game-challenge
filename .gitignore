@@ -3,3 +3,6 @@ resources/
 node_modules/
 dist/
 *.zip
+.devin/mcp_config.local.json
+tools/mylenses-mcp/.browser-profile/
+tools/mylenses-mcp/shots/
