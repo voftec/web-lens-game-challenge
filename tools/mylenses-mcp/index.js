@@ -45,17 +45,17 @@ const CLEAN_VIEW = {
   video: { width: 720, height: 1560 },
 };
 
-async function injectSnapChrome(page, mode) {
+async function injectSnapChrome(page, mode, device = SNAP_CHROME_DEVICE) {
   const file = SNAP_CHROME_MODES[mode];
-  await page.evaluate((f, device) => {
+  await page.evaluate(([f, dev]) => {
     document.getElementById("snap-chrome")?.remove();
     if (!f) return;
     const img = document.createElement("img");
     img.id = "snap-chrome";
-    img.src = `/__snapchrome__/${encodeURIComponent(device)}/${f}.png`;
+    img.src = `/__snapchrome__/${encodeURIComponent(dev)}/${f}.png`;
     img.style.cssText = "position:fixed;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;z-index:2147483647";
     document.body.appendChild(img);
-  }, file ?? "", SNAP_CHROME_DEVICE);
+  }, [file ?? "", device]);
 }
 
 function makeStaticServer(dir) {
@@ -944,6 +944,78 @@ server.tool(
       "-frames:v", "1", outPath], { encoding: "utf8" });
     if (enc.status !== 0) return txt(`ffmpeg failed: ${enc.stderr?.slice(-600)}`);
     return txt(JSON.stringify({ icon: outPath, source: tmp, sizeKB: Math.round(statSync(outPath).size / 1024) }, null, 2));
+  }
+);
+
+server.tool(
+  "weblens_verify_devices",
+  "Mandatory UI-sync verification: renders the build across all 13 Lens Studio device models (iPhone 14 Pro, 14 Pro Max, 13 Pro, 8, Galaxy S20 + 8 legacy models) with their real Snapchat camera overlays, and outputs side-by-side comparison grids (shots/grid-active-5.jpg and shots/grid-legacy-8.jpg) so you can visually verify zero HUD collision or distortion across every aspect ratio (16:9, 18:9, 19.5:9, 20:9).",
+  {
+    dir: z.string().describe("Build dir containing index.html"),
+    warmupMs: z.number().default(2600),
+  },
+  async ({ dir, warmupMs }) => {
+    if (!existsSync(join(dir, "index.html"))) return txt(`ERROR: no index.html in ${dir}`);
+    const { readdirSync } = await import("node:fs");
+    const srv = makeStaticServer(dir);
+    await new Promise((r) => srv.listen(0, r));
+    const port = srv.address().port;
+    const allDevs = readdirSync(SNAP_OVERLAYS_DIR).filter(d => existsSync(join(SNAP_OVERLAYS_DIR, d, "live.png")));
+    const browser = await chromium.launch();
+    const probe = await (await browser.newContext()).newPage();
+    const specs = [];
+    for (const dev of allDevs) {
+      const b64 = readFileSync(join(SNAP_OVERLAYS_DIR, dev, "live.png")).toString("base64");
+      const { W, H } = await probe.evaluate(async s => {
+        const i = new Image(); i.src = "data:image/png;base64," + s; await i.decode();
+        return { W: i.width, H: i.height };
+      }, b64);
+      const cssW = 393, cssH = Math.round(393 * H / W);
+      const slug = dev.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+      specs.push({ dev, W, H, cssW, cssH, slug });
+    }
+    await probe.context().close();
+    const errors = [];
+    for (const s of specs) {
+      const c = await browser.newContext({ viewport: { width: s.cssW, height: s.cssH }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+      const p = await c.newPage();
+      p.on("pageerror", e => errors.push(`${s.dev}: ${e.message}`));
+      await p.goto(`http://localhost:${port}/`, { waitUntil: "load" });
+      await p.waitForTimeout(warmupMs);
+      await injectSnapChrome(p, "camera", s.dev);
+      await p.waitForTimeout(250);
+      await p.screenshot({ path: join(HERE, "shots", `dev-${s.slug}.png`) });
+      await c.close();
+    }
+    await browser.close();
+    srv.close();
+    const g5 = join(HERE, "shots", "grid-active-5.jpg");
+    const g8 = join(HERE, "shots", "grid-legacy-8.jpg");
+    spawnSync("ffmpeg", ["-y",
+      "-i", join(HERE, "shots", "dev-iphone-14-pro.png"),
+      "-i", join(HERE, "shots", "dev-iphone-14-pro-max.png"),
+      "-i", join(HERE, "shots", "dev-iphone-13-pro.png"),
+      "-i", join(HERE, "shots", "dev-iphone-8.png"),
+      "-i", join(HERE, "shots", "dev-galaxy-s20.png"),
+      "-filter_complex", "[0:v]scale=-1:900[a];[1:v]scale=-1:900[b];[2:v]scale=-1:900[c];[3:v]scale=-1:900[d];[4:v]scale=-1:900[e];[a][b][c][d][e]hstack=inputs=5",
+      g5]);
+    spawnSync("ffmpeg", ["-y",
+      "-i", join(HERE, "shots", "dev-iphone-x.png"),
+      "-i", join(HERE, "shots", "dev-iphone-5s.png"),
+      "-i", join(HERE, "shots", "dev-galaxy-s9.png"),
+      "-i", join(HERE, "shots", "dev-galaxy-s9-softbar.png"),
+      "-i", join(HERE, "shots", "dev-pixel-2-xl.png"),
+      "-i", join(HERE, "shots", "dev-lg-g6.png"),
+      "-i", join(HERE, "shots", "dev-redmi-note-8-pro.png"),
+      "-i", join(HERE, "shots", "dev-blackberry-keyone.png"),
+      "-filter_complex", "[0:v]scale=-1:800[a];[1:v]scale=-1:800[b];[2:v]scale=-1:800[c];[3:v]scale=-1:800[d];[4:v]scale=-1:800[e];[5:v]scale=-1:800[f];[6:v]scale=-1:800[g];[7:v]scale=-1:800[h];[a][b][c][d][e][f][g][h]hstack=inputs=8",
+      g8]);
+    return txt(JSON.stringify({
+      devicesTested: specs.length,
+      activeGrid: g5,
+      legacyGrid: g8,
+      errors: errors.length ? errors : "none",
+    }, null, 2));
   }
 );
 

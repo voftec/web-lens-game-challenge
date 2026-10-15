@@ -15,10 +15,12 @@ El usuario es **Diego**. Siempre dirigirse a él por su nombre y en español.
    tabla de equivalencias Antigravity → Devin.
 3. `STATUS.md` — estado actual del proyecto (fase, bloqueos, próximos pasos).
    Si no existe, crearlo.
-4. **Skill `.devin/skills/snap-game-ui-adapt/SKILL.md`** — invocar siempre al diseñar,
-   construir, portar o revisar UI/controles de un juego. Contiene el mapa de píxeles
-   exacto del chrome de Snapchat (`393×852`), la distribución de 3 puntos del HUD,
-   las reglas de animación/clamping y el checklist funcional touch-first.
+4. **Skill `.devin/skills/snap-game-ui-adapt/SKILL.md` + `tools/snap-ui-sync/snap-ui-sync.js`** —
+   parte obligatoria del stack. **"Que funcione" NO alcanza**: toda UI tiene que estar
+   **sincronizada** con el chrome de Snapchat en tiempo real (`--ux`, `--uy`, `--s`,
+   anclas por aspect ratio `16:9 / 18:9 / 19.5:9 / 20:9` y `window.SnapUISync`) y
+   verificada visualmente en los **13 modelos de teléfono de Lens Studio** corriendo
+   el tool MCP `weblens_verify_devices` (`shots/grid-active-5.jpg` y `shots/grid-legacy-8.jpg`).
 
 ## Cómo funciona
 

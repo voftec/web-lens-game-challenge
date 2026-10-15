@@ -149,12 +149,17 @@ To make the distribution AND relative element sizes look **identical** across sm
    Verified across **all 13 device models** in Lens Studio (`tools/mylenses-mcp/test-all-devices.mjs` → `shots/grid-active-5.jpg` and `shots/grid-legacy-8.jpg`).
 3. Canonical snippet lives at `spikes/mobile-hud-patch.html`.
 
-## 7. Verification Workflow (Mandatory Before Saying "Done")
+## 7. Stack Runtime & Verification Workflow (Mandatory — "It Works" Is Never Enough)
 
-1. Run the build in Playwright at `viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true` with `/__snapchrome__/iPhone 14 Pro/live.png` injected (`chrome-test.mjs` / `gameplay_start`).
-2. Capture and visually inspect (`read` tool on the PNG):
-   - **Boot / idle state**: verify `Round`, `Score`, `$`, `❤️`, controls, and dock against the pixel map.
+1. **Include the stack runtime `tools/snap-ui-sync/snap-ui-sync.js`** in every build:
+   - Synchronizes `--ux`, `--uy`, `--s`, `--top-k`, `--row2-k`, `--bot-k` on `resize`, `orientationchange`, and `visualViewport.resize`, and dispatches the `"snap-ui-sync"` CustomEvent.
+   - Exposes `window.SnapUISync.getPlayableBand()` and `window.SnapUISync.clampToPlayable(x, y)` for 3D/2D world-to-screen projections.
+2. **Run the MCP tool `weblens_verify_devices` on the build directory**:
+   - Captures all **13 Lens Studio device models** (`iPhone 14 Pro`, `14 Pro Max`, `13 Pro`, `8`, `Galaxy S20` + 8 legacy models) with their real Snapchat `live.png` overlays and produces `tools/mylenses-mcp/shots/grid-active-5.jpg` and `tools/mylenses-mcp/shots/grid-legacy-8.jpg`.
+   - Visually inspect (`read` tool) both grids to confirm every HUD cluster is synchronized across `16:9`, `18:9`, `19.5:9`, and `20:9`.
+3. **Interactive states check**:
+   - **Boot / idle state**: verify `Round`, `Score` (`margin-top: 4px`), `$`, `❤️`, controls, and dock against the pixel map.
    - **Selection / tooltip state**: tap a dock button, verify tooltip centering and touch copywriting.
    - **Active wave + world menu state**: place items, start wave, tap an in-world item to open its radial/upgrade menu, verify zero overlap with Snapchat icons or carousel.
-3. Confirm `pageerror` and `console.error` arrays are empty (`[]`).
-4. Confirm `grep -rn "snap-chrome\|__snapchrome__" dist/` returns nothing before packaging.
+4. Confirm `pageerror` and `console.error` arrays are empty (`[]`).
+5. Confirm `grep -rn "snap-chrome\|__snapchrome__" dist/` returns nothing before packaging.
