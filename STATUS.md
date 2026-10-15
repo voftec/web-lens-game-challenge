@@ -35,3 +35,21 @@
 - Checklist de la UI: zip válido, ≤100MB, build output ≤8MB, icono png ≤8MB, nombre, video 5–10s (720x1280 min, ≤32MB).
 - Nota: el portal acepta zip de hasta 100MB y extrae el build de dist/ solo — el límite de 8MB aplica al output, no al zip.
 - Próximo: esperar review de Snap, obtener Lens link, probar en teléfono.
+
+## Update — Rechazo de Snap (15 oct 2026)
+
+- `Argon Towers Test` rechazado: **Critical Runtime Error** en automated testing
+  (banner en la página del Lens + modal Errors con mensaje genérico — el portal
+  NO muestra logs detallados; hay que pedirlos a lensstudio-support@snapchat.com).
+- Causa probable (P0 ya detectado en spike): `this.audio.unlock is not a function`
+  crashea en el primer tap → "critical error during automated testing".
+- Fix aplicado en `spikes/argon-towers-v2/dist`: `audio.unlock()` →
+  `audio.resume()`, `viewport-fit=cover`, safe-area translateY en HUD,
+  `overscroll-behavior:none`. Playtest limpio: 0 errores de consola/página.
+- Preview video real grabado con Playwright (720x1280 webm → mp4 faststart):
+  `spikes/argon-towers-v2/preview-v2.mp4`.
+- Zip v2: `spikes/argon-towers-lens-v2.zip` (5.9MB). Pendiente: re-submit como
+  "Update an existing Lens".
+- Nuevo tool MCP `mylenses_error_report`: dado lensName+folderName scrapea
+  Lens ID, status y errores del modal, y devuelve un draft de email a soporte
+  con el Lens ID pidiendo logs detallados.

@@ -251,4 +251,83 @@ server.tool(
   }
 );
 
+server.tool(
+  "mylenses_error_report",
+  "Fetch a Lens's review errors: navigates to its detail page in a Lens Folder, scrapes the Lens ID, status and every error shown in the Errors modal ('Error Logs'/'See more'). Returns the errors plus a ready-to-send support email draft (lensstudio-support@snapchat.com) including the Lens ID, asking for the detailed logs and which behaviors are disallowed.",
+  {
+    lensName: z.string().describe("Lens name as shown in the folder table, e.g. 'Argon Towers Test'"),
+    folderName: z.string().optional().describe("Lens Folder name; if omitted, iterates all folders"),
+  },
+  async ({ lensName, folderName }) => {
+    return txt(
+      await withPage(true, async (page) => {
+        await page.goto(`${MYLENSES}/home`, { waitUntil: "domcontentloaded" });
+        await page.waitForSelector("text=Welcome", { timeout: 30000 });
+        await page.click("text=Lens Folders");
+        await page.waitForTimeout(4000);
+        const folders = folderName ? [folderName] :
+          await page.evaluate(() => [...document.querySelectorAll("a")]
+            .map(a => a.innerText.trim())
+            .filter(t => t && !/Home|Lens Folders|Insights|Monetization|Asset|Hosted|Web Lenses|Scheduler|Apps|Privacy|Terms|Cookie|Invite|Create/.test(t))
+            .slice(0, 10));
+        let found = false;
+        for (const f of folders) {
+          await page.goto(`${MYLENSES}/home`, { waitUntil: "domcontentloaded" });
+          await page.waitForSelector("text=Welcome", { timeout: 30000 });
+          await page.click("text=Lens Folders");
+          await page.waitForTimeout(3000);
+          await page.click(`text=${f}`).catch(() => {});
+          await page.waitForTimeout(4000);
+          if (await page.locator(`text=${lensName}`).count()) {
+            await page.click(`text=${lensName}`);
+            found = true;
+            break;
+          }
+        }
+        if (!found) return `Lens "${lensName}" not found in folders: ${folders.join(", ")}`;
+        await page.waitForTimeout(5000);
+        const base = await page.evaluate(() => ({
+          url: location.href,
+          lensId: document.body.innerText.match(/Lens ID:\s*([0-9a-f-]+)/i)?.[1] ?? null,
+          status: document.body.innerText.match(/\n(Processing|Published|Invalid|Live|Rejected)\n/)?.[1] ?? null,
+          banner: document.body.innerText.match(/This Lens submission was[^.]+\./)?.[0] ?? null,
+        }));
+        // open every error affordance and collect text
+        for (const sel of ["text=Error Logs", "text=See more", "text=View Details"]) {
+          await page.click(sel).catch(() => {});
+          await page.waitForTimeout(2500);
+        }
+        const errors = await page.evaluate(() => {
+          const mods = [...document.querySelectorAll(".ant-modal, [class*=modal], [role=dialog]")]
+            .map(m => m.innerText.trim()).filter(Boolean);
+          const body = document.body.innerText;
+          const inline = body.match(/Errors[\s\S]{0,2000}?mailto:[^)]+\)|Errors\n[\s\S]{0,1500}/)?.[0];
+          return { modalText: mods.join("\n---\n"), inlineErrors: inline ?? null };
+        });
+        const shot = join(HERE, "shots", `errors-${Date.now()}.png`);
+        await page.screenshot({ path: shot, fullPage: true }).catch(() => {});
+        const draft = [
+          `To: lensstudio-support@snapchat.com`,
+          `Subject: Web Lens review — request for detailed error logs (Lens ID ${base.lensId})`,
+          ``,
+          `Hi Snap team,`,
+          ``,
+          `My Web Lens "${lensName}" (Lens ID: ${base.lensId}) was rejected during`,
+          `automated testing with a "Critical Runtime Error". The portal only shows the`,
+          `generic message, so could you share the detailed logs (stack trace / device /`,
+          `webview version) and which specific behaviors are considered not allowed or`,
+          `unsupported, so I can fix and resubmit?`,
+          ``,
+          `Errors visible in My Lenses:`,
+          errors.modalText || errors.inlineErrors || "(none scraped)",
+          ``,
+          `Thanks,`,
+          `Diego`,
+        ].join("\n");
+        return JSON.stringify({ ...base, errors, screenshot: shot, supportEmailDraft: draft }, null, 2);
+      })
+    );
+  }
+);
+
 await server.connect(new StdioServerTransport());
