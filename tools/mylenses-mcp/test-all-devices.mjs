@@ -4,7 +4,7 @@ import { createReadStream, existsSync, statSync, readdirSync, readFileSync } fro
 import { join, extname } from "node:path";
 import { spawnSync } from "node:child_process";
 
-const dir = "../../spikes/argon-towers-v2/dist";
+const dir = process.argv[2] || "../../game/dist";
 const OVERLAYS = "../../research/snap-preview-re/assets/devices_overlays";
 const MIME = { ".html":"text/html", ".js":"text/javascript", ".css":"text/css", ".png":"image/png", ".jpg":"image/jpeg", ".webp":"image/webp", ".mp3":"audio/mpeg", ".json":"application/json" };
 const srv = createServer((req,res)=>{
@@ -42,7 +42,23 @@ for (const s of specs) {
   const c = await b.newContext({ viewport: { width: s.cssW, height: s.cssH }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   const p = await c.newPage();
   await p.goto(`http://localhost:${port}/`, { waitUntil: "load" });
-  await p.waitForTimeout(2600);
+  await p.waitForTimeout(900);
+  // If Calle del Hambre is running, build a juicy Perro Con Todo so every device screenshot shows the full 3D food + sauces!
+  await p.evaluate(() => {
+    if (window.game && typeof window.game.addIngredient === "function") {
+      window.game.addIngredient("wiener", true);
+      window.game.addIngredient("repollo", true);
+      window.game.addIngredient("zanahoria", true);
+      window.game.addIngredient("cebolla", true);
+      window.game.addIngredient("papitas", true);
+      window.game.addIngredient("queso_ano", true);
+      window.game.addIngredient("ajo", true);
+      window.game.addIngredient("ketchup", true);
+      window.game.addIngredient("mostaza", true);
+      window.game.addIngredient("guasacaca", true);
+    }
+  }).catch(() => {});
+  await p.waitForTimeout(600);
   await p.evaluate((d) => {
     const img = document.createElement("img"); img.id = "snap-chrome";
     img.src = `/__snapchrome__/${encodeURIComponent(d)}/live.png`;

@@ -2,7 +2,7 @@ import { chromium } from "playwright";
 import { createServer } from "node:http";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { join, extname } from "node:path";
-const dir = "../../spikes/argon-towers-v2/dist";
+const dir = process.argv[2] || "../../game/dist";
 const OVERLAYS = "../../research/snap-preview-re/assets/devices_overlays";
 const MIME = { ".html":"text/html", ".js":"text/javascript", ".css":"text/css", ".png":"image/png", ".jpg":"image/jpeg", ".webp":"image/webp", ".mp3":"audio/mpeg", ".json":"application/json" };
 const srv = createServer((req,res)=>{
