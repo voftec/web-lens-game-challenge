@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calle el Hambre — GLB Casting</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1a1512; overflow: hidden; font-family: -apple-system, system-ui, sans-serif; }
+  canvas { display: block; }
+  #hud { position: fixed; top: 0; left: 0; right: 0; padding: 14px 18px; display: flex; align-items: center; gap: 14px; z-index: 5; flex-wrap: wrap; }
+  #hud h1 { margin: 0; font-size: 17px; color: #f5e9d0; font-weight: 700; letter-spacing: .3px; }
+  #hud .sub { color: #a89880; font-size: 12px; }
+  #moods { display: flex; gap: 8px; margin-left: auto; }
+  #moods button {
+    border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.06); color: #f5e9d0;
+    padding: 7px 13px; border-radius: 20px; font-size: 13px; cursor: pointer; backdrop-filter: blur(4px);
+  }
+  #moods button:hover { background: rgba(255,255,255,.14); }
+  .chip {
+    position: fixed; transform: translate(-50%, 0); text-align: center; z-index: 4; pointer-events: none;
+    color: #fff;
+  }
+  .chip .name { font-size: 14px; font-weight: 800; text-shadow: 0 2px 8px rgba(0,0,0,.8); letter-spacing: .3px; }
+  .chip .role { font-size: 10.5px; color: #d8c9a8; text-shadow: 0 1px 6px rgba(0,0,0,.8); margin-top: 1px; }
+</style>
+</head>
+<body>
+<div id="hud">
+  <h1>🍔 Calle el Hambre — GLB Casting</h1>
+  <span class="sub">rigged Quaternius CC0 models · drag para orbitar</span>
+  <div id="moods">
+    <button data-mood="neutral">😐 Neutral</button>
+    <button data-mood="happy">😄 Felices</button>
+    <button data-mood="impatient">😒 Impacientes</button>
+    <button data-mood="angry">😠 Enojados</button>
+  </div>
+</div>
+<script type="module">
+import * as THREE from './assets/vendor/three.module.js';
+import { createCustomer } from './glb-people.js';
+
+const ROSTER = [
+  { name: 'Don Filete',   role: 'el chef rival',            model: './assets/models/city/Chef_Male.glb',        mood: 'neutral' },
+  { name: 'Chef Rosario', role: 'viene a inspeccionar',     model: './assets/models/city/Chef_Female.glb',      mood: 'happy' },
+  { name: 'Beto',         role: 'oficinista sin tiempo',    model: './assets/models/city/Suit_Male.glb',        mood: 'impatient' },
+  { name: 'Lucía',        role: 'traje y laptop al hombro', model: './assets/models/city/Suit_Female.glb',      mood: 'neutral' },
+  { name: 'El Calvo',     role: 'barba y antojo grande',    model: './assets/models/city/Casual_Bald.glb',      mood: 'happy' },
+  { name: 'Mario',        role: 'hoodie y hambre',          model: './assets/models/city/Casual_Male.glb',      mood: 'happy' },
+  { name: 'Nico',         role: 'el de la remera rara',     model: './assets/models/city/Casual2_Male.glb',     mood: 'neutral' },
+  { name: 'Rafa',         role: 'tercer pancho del día',    model: './assets/models/city/Casual3_Male.glb',     mood: 'happy' },
+  { name: 'Vale',         role: 'la regular del mediodía',  model: './assets/models/city/Casual_Female.glb',    mood: 'neutral' },
+  { name: 'Cami',         role: 'fotografía el pancho',     model: './assets/models/city/Casual2_Female.glb',   mood: 'happy' },
+  { name: 'Juli',         role: 'pide sin cebolla',         model: './assets/models/city/Casual3_Female.glb',   mood: 'impatient' },
+  { name: 'El Fierrero',  role: 'sale de la obra',          model: './assets/models/city/Worker_Male.glb',      mood: 'neutral' },
+  { name: 'Profe Ana',    role: 'cuenta los cambios',       model: './assets/models/city/Worker_Female.glb',    mood: 'neutral' },
+  { name: 'Don Aurelio',  role: 'jubilado de traje',        model: './assets/models/city/OldClassy_Male.glb',   mood: 'neutral' },
+  { name: 'Doña Alma',    role: 'lleva 40 años viniendo',   model: './assets/models/city/OldClassy_Female.glb', mood: 'happy' },
+  { name: 'El Ranchero',  role: 'bigote y botas',           model: './assets/models/city/Cowboy_Male.glb',      mood: 'happy' },
+  { name: 'La Vaquera',   role: 'sombrero y prisa',         model: './assets/models/city/Cowboy_Female.glb',    mood: 'impatient' },
+  { name: 'El Pug',       role: 'espera las sobras',        model: './assets/models/city/Pug.glb',              mood: 'happy' },
+  { name: 'La Vaca',      role: 'cuestionable, pero paga',  model: './assets/models/city/Cow.glb',              mood: 'neutral' },
+];
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x2b2333);
+scene.fog = new THREE.Fog(0x2b2333, 14, 26);
+
+const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 60);
+camera.position.set(0, 4.6, 14.5);
+camera.lookAt(0, 0.9, 0.4);
+
+scene.add(new THREE.HemisphereLight(0xfff4e0, 0x50465c, 1.55));
+const key = new THREE.DirectionalLight(0xffe8c0, 2.1);
+key.position.set(-3, 6, 5);
+scene.add(key);
+const rimPink = new THREE.DirectionalLight(0xff8fb0, 0.9);
+rimPink.position.set(5, 3, -4);
+scene.add(rimPink);
+const rimCyan = new THREE.DirectionalLight(0x7fd4ff, 0.8);
+rimCyan.position.set(-5, 3.5, -4);
+scene.add(rimCyan);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.35;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = -6; key.shadow.camera.right = 6;
+key.shadow.camera.top = 6; key.shadow.camera.bottom = -6;
+document.body.appendChild(renderer.domElement);
+
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 30), new THREE.MeshStandardMaterial({ color: 0x342b3d, roughness: 0.95 }));
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+const discMat = new THREE.MeshStandardMaterial({ color: 0x453b52, roughness: 0.75 });
+const discEdge = new THREE.MeshStandardMaterial({ color: 0xffc35a, roughness: 0.4, emissive: 0x533b10 });
+const customers = [];
+const chips = [];
+
+ROSTER.forEach((cfg, i) => {
+  const c = createCustomer(cfg);
+  const disc = new THREE.Group();
+  const d = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 0.08, 32), discMat);
+  d.position.y = -0.04; d.receiveShadow = true;
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.025, 8, 40), discEdge);
+  ring.rotation.x = Math.PI / 2; ring.position.y = 0.005;
+  disc.add(d, ring);
+  const col = i % 7, row = Math.floor(i / 7);
+  disc.position.set((col - 3) * 2.2, 0, row === 0 ? -1.9 : row === 1 ? 0.4 : 2.7);
+  scene.add(disc);
+  c.group.position.set(0, 0, 0);
+  disc.add(c.group);
+  c._disc = disc;
+  customers.push(c);
+
+  const chip = document.createElement('div');
+  chip.className = 'chip';
+  chip.innerHTML = `<div class="name">${cfg.name}</div><div class="role">${cfg.role}</div>`;
+  document.body.appendChild(chip);
+  chips.push(chip);
+});
+
+const MOOD_IND = { neutral: null, happy: 'happy', impatient: 'sweat', angry: 'angry' };
+document.getElementById('moods').addEventListener('click', (e) => {
+  const m = e.target.dataset?.mood;
+  if (!m) return;
+  customers.forEach(c => { c.setMood(m); c.setIndicator(MOOD_IND[m]); c.talk(); });
+});
+
+let drag = null, camYaw = 0, camPitch = 0;
+addEventListener('pointerdown', e => drag = { x: e.clientX, y: e.clientY, yaw: camYaw, pitch: camPitch });
+addEventListener('pointerup', () => drag = null);
+addEventListener('pointermove', e => {
+  if (!drag) return;
+  camYaw = drag.yaw - (e.clientX - drag.x) * 0.005;
+  camPitch = Math.max(-0.2, Math.min(0.5, drag.pitch - (e.clientY - drag.y) * 0.003));
+});
+
+const v = new THREE.Vector3();
+let last = performance.now();
+function loop(now) {
+  requestAnimationFrame(loop);
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  const t = now / 1000;
+
+  const R = 14.5;
+  camera.position.set(Math.sin(camYaw) * R, 4.6 + camPitch * 5, Math.cos(camYaw) * R);
+  camera.lookAt(0, 0.9, 0.4);
+
+  customers.forEach((c, i) => {
+    c.update(dt, t, { x: 0, z: 3 });
+    c._disc.getWorldPosition(v); v.y += 0.02; v.z += 1.05;
+    v.project(camera);
+    const sx = Math.min(Math.max((v.x * 0.5 + 0.5) * innerWidth, 70), innerWidth - 70);
+    const sy = (-v.y * 0.5 + 0.5) * innerHeight;
+    chips[i].style.left = sx + 'px';
+    chips[i].style.top = sy + 'px';
+    chips[i].style.display = v.z < 1 ? 'block' : 'none';
+  });
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(loop);
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

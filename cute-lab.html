@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Cute Head Lab</title>
+<style>
+  body{margin:0;background:#f6e9d8;font-family:system-ui}
+  #ui{position:fixed;top:10px;left:10px;display:flex;gap:6px;z-index:2}
+  button{font-size:18px;padding:6px 10px;border-radius:10px;border:0;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+</style></head><body>
+<div id="ui">
+  <button data-m="neutral">😐</button><button data-m="happy">😄</button>
+  <button data-m="impatient">😒</button><button data-m="angry">😠</button><button data-m="surprised">😮</button>
+</div>
+<script type="module">
+import * as THREE from './assets/vendor/three.module.js';
+import { createCustomer } from './glb-people.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xf6e9d8);
+const cam = new THREE.PerspectiveCamera(32, innerWidth/innerHeight, 0.01, 100);
+cam.position.set(0, 1.6, 6.2); cam.lookAt(0, 1.05, 0);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xfff4e6, 0xb9a48a, 1.4));
+const key = new THREE.DirectionalLight(0xfff0dd, 2.2); key.position.set(2.5, 5, 4); key.castShadow = true; scene.add(key);
+const rim = new THREE.DirectionalLight(0x9fd3ff, 1.2); rim.position.set(-3, 3, -3); scene.add(rim);
+const floor = new THREE.Mesh(new THREE.CircleGeometry(6, 48), new THREE.MeshStandardMaterial({ color: 0xe8d6c0 }));
+floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; scene.add(floor);
+
+const H = './assets/models/city-headless/';
+const q = new URLSearchParams(location.search);
+const CAST = q.get('set') === 'hair' ? [
+  { model: H+'Casual_Male.glb',    tint:{Skin:0xd9a07a, Hair:0x2a1d14}, cute:{ hair:'m_short' } },
+  { model: H+'Casual2_Male.glb',   tint:{Skin:0xf0c8a0, Hair:0x8a5a2a}, cute:{ hair:'m_quiff' } },
+  { model: H+'Casual3_Male.glb',   tint:{Skin:0x8c5a34, Hair:0x1a1210}, cute:{ hair:'m_wavy' } },
+  { model: H+'Worker_Male.glb',    tint:{Skin:0x7a4a2e, Hair:0x111111}, cute:{ hair:'m_buzz' } },
+  { model: H+'Casual2_Male.glb',   tint:{Skin:0x6b3f23, Hair:0x151010}, cute:{ hair:'m_afro' } },
+  { model: H+'Casual_Female.glb',  tint:{Skin:0xf2c6a6, Hair:0x5a3a22}, cute:{ hair:'f_bob' } },
+  { model: H+'Casual3_Female.glb', tint:{Skin:0xe8b48e, Hair:0xc45a2a}, cute:{ hair:'f_pony' } },
+  { model: H+'Casual_Female.glb',  tint:{Skin:0xc68a5a, Hair:0x3d2b1e}, cute:{ hair:'f_bun' } },
+  { model: H+'Casual2_Female.glb', tint:{Skin:0xf4cdb0, Hair:0xf0c84a}, cute:{ hair:'f_pixie' } },
+] : [
+  { model: H+'Casual_Female.glb', tint:{Skin:0xf2c6a6, Hair:0x5a3a22}, cute:{ hair:'bob' } },
+  { model: H+'Casual_Male.glb',   tint:{Skin:0xd9a07a, Hair:0x2a1d14}, cute:{ hair:'short' } },
+  { model: H+'Casual2_Female.glb',tint:{Skin:0xa8663f, Hair:0xf0c84a}, cute:{ hair:'cap', accent:0x37508c } },
+  { model: H+'Worker_Male.glb',   tint:{Skin:0x7a4a2e, Hair:0x111111}, cute:{ hair:'curls', hairColor:0x1a1210 } },
+  { model: H+'Casual3_Female.glb',tint:{Skin:0xe8b48e, Hair:0x3d2b1e}, cute:{ hair:'pigtails', hairColor:0xc45a2a } },
+  { model: H+'Casual2_Male.glb',  tint:{Skin:0x8c5a34, Hair:0x1a1210}, cute:{ hair:'spiky', hairColor:0x222222 } },
+];
+const SPACING = CAST.length > 6 ? 0.95 : 1.25;
+if (CAST.length > 6) cam.position.set(0, 1.7, 9.6);
+const custs = [];
+CAST.forEach((def, i) => {
+  const c = createCustomer({ ...def, scale: 1.55 });
+  c.group.position.set((i - (CAST.length-1)/2) * SPACING, 0, 0);
+  scene.add(c.group); custs.push(c);
+});
+await Promise.all(custs.map(c => c.ready));
+window.game = { prepView: { customers: custs, queue: custs.map(api => ({ api, state:'wait', slot:0 })), peds: [] } };
+
+document.querySelectorAll('button').forEach(b => b.onclick = () => custs.forEach(c => c.setMood(b.dataset.m)));
+let spin = 0; addEventListener('pointermove', e => { if (e.buttons) spin += e.movementX * 0.01; });
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = clock.getDelta(); const t = clock.elapsedTime;
+  for (const c of custs) { c.group.rotation.y = spin; c.update(dt, t, { x: Math.sin(t*0.7)*2, y: 1.6, z: 4 }); }
+  renderer.render(scene, cam);
+});
+addEventListener('resize', () => { cam.aspect = innerWidth/innerHeight; cam.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+</script></body></html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>body{margin:0}</style></head><body>
+<script type="module">
+import * as THREE from './assets/vendor/three.module.js';
+import { createCustomer } from './glb-people.js';
+
+const q = new URLSearchParams(location.search);
+const model = q.get('model') || 'Casual_Male';
+const mood = q.get('mood') || 'neutral';
+const skin = q.get('skin') ? parseInt(q.get('skin'), 16) : 0xf2c19b;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x3a3244);
+const cam = new THREE.PerspectiveCamera(40, innerWidth/innerHeight, 0.01, 100);
+cam.position.set(0, 1.55, 2.4); cam.lookAt(0, 1.15, 0);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.5));
+const dl = new THREE.DirectionalLight(0xfff0dd, 2); dl.position.set(2,4,3); scene.add(dl);
+scene.add(new THREE.GridHelper(4, 8));
+
+const c = createCustomer({
+  model: './assets/models/city/' + model + '.glb',
+  mood,
+  tint: { Skin: skin, Hair: 0x4a2f1c },
+});
+await c.ready;
+scene.add(c.group);
+window.__scene = scene; window.__THREE = THREE; window.__c = c;
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = clock.getDelta();
+  c.update(dt, clock.elapsedTime, { x: 0, z: 3 });
+  renderer.render(scene, cam);
+});
+window.__ok = true;
+</script></body></html>

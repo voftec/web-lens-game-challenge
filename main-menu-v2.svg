@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="586" height="900" viewBox="0 0 586 900">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9df348"/>
+      <stop offset=".32" stop-color="#42c96c"/>
+      <stop offset=".62" stop-color="#35b8d2"/>
+      <stop offset="1" stop-color="#7b4bd6"/>
+    </linearGradient>
+    <radialGradient id="blobYellow" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#ffe66a" stop-opacity=".95"/>
+      <stop offset="1" stop-color="#ffe66a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="blobPink" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#ff4fd8" stop-opacity=".72"/>
+      <stop offset="1" stop-color="#ff4fd8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="blobBlue" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#52f4ff" stop-opacity=".85"/>
+      <stop offset="1" stop-color="#52f4ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="buttonGreen" cx=".36" cy=".25" r=".75">
+      <stop offset="0" stop-color="#efff87"/>
+      <stop offset=".42" stop-color="#9ce93d"/>
+      <stop offset="1" stop-color="#43a920"/>
+    </radialGradient>
+    <radialGradient id="buttonGray" cx=".35" cy=".25" r=".75">
+      <stop offset="0" stop-color="#e7e7e7"/>
+      <stop offset=".5" stop-color="#9fa2a1"/>
+      <stop offset="1" stop-color="#5d6567"/>
+    </radialGradient>
+    <linearGradient id="orangeBtn" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff476"/>
+      <stop offset=".48" stop-color="#ffb526"/>
+      <stop offset="1" stop-color="#f06b12"/>
+    </linearGradient>
+    <linearGradient id="dock" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#34382d" stop-opacity=".96"/>
+      <stop offset="1" stop-color="#11160f" stop-opacity=".98"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f1f7f7"/>
+      <stop offset="1" stop-color="#97aab1"/>
+    </linearGradient>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#06100b" flood-opacity=".42"/>
+    </filter>
+    <filter id="tinyShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#06100b" flood-opacity=".45"/>
+    </filter>
+    <style>
+      .title{font:900 58px system-ui,sans-serif;fill:#fff3bf;stroke:#1d1b13;stroke-width:8;paint-order:stroke;letter-spacing:-1px}
+      .title2{font:900 62px system-ui,sans-serif;fill:#fff3bf;stroke:#1d1b13;stroke-width:9;paint-order:stroke;letter-spacing:-2px}
+      .sub{font:850 18px system-ui,sans-serif;fill:#2c1b0b;stroke:#ffcf54;stroke-width:4;paint-order:stroke}
+      .label{font:900 20px system-ui,sans-serif;fill:#fff4c5;stroke:#19130d;stroke-width:5;paint-order:stroke}
+      .small{font:850 14px system-ui,sans-serif;fill:#201407}
+      .tiny{font:850 11px system-ui,sans-serif;fill:#fff3c5;stroke:#19130d;stroke-width:3;paint-order:stroke}
+      .price{font:900 17px system-ui,sans-serif;fill:#231304}
+      .iconStroke{stroke:#151713;stroke-width:6;stroke-linecap:round;stroke-linejoin:round}
+      .outline{stroke:#151713;stroke-width:6}
+      .thin{stroke:#151713;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+      .dockText{font:900 15px system-ui,sans-serif;fill:#fff4c5;stroke:#19130d;stroke-width:4;paint-order:stroke}
+    </style>
+  </defs>
+
+  <rect width="586" height="900" fill="url(#bg)"/>
+  <ellipse cx="520" cy="80" rx="190" ry="150" fill="url(#blobYellow)"/>
+  <ellipse cx="60" cy="120" rx="170" ry="150" fill="url(#blobBlue)"/>
+  <ellipse cx="515" cy="480" rx="220" ry="200" fill="url(#blobPink)"/>
+  <ellipse cx="80" cy="720" rx="200" ry="180" fill="url(#blobYellow)" opacity=".7"/>
+  <ellipse cx="290" cy="500" rx="280" ry="230" fill="#fff" opacity=".06"/>
+
+  <!-- decorative rings -->
+  <circle cx="48" cy="56" r="42" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width="10"/>
+  <circle cx="548" cy="215" r="55" fill="none" stroke="#171b14" stroke-opacity=".16" stroke-width="13"/>
+  <circle cx="515" cy="740" r="95" fill="none" stroke="#fff" stroke-opacity=".13" stroke-width="18"/>
+  <circle cx="85" cy="375" r="72" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width="14"/>
+
+  <!-- title -->
+  <text x="293" y="126" text-anchor="middle" class="title">CALLE</text>
+  <text x="293" y="188" text-anchor="middle" class="title2">DEL HAMBRE</text>
+  <rect x="181" y="208" width="224" height="36" rx="18" fill="#ffbb30" stroke="#17130c" stroke-width="5" filter="url(#tinyShadow)"/>
+  <text x="293" y="233" text-anchor="middle" class="sub">PERREROS 3D</text>
+
+  <!-- hero medallion -->
+  <circle cx="293" cy="386" r="122" fill="#11160f" opacity=".34"/>
+  <circle cx="293" cy="374" r="116" fill="url(#buttonGreen)" class="outline" filter="url(#softShadow)"/>
+  <circle cx="293" cy="374" r="92" fill="#18301f" opacity=".32"/>
+  <circle cx="293" cy="374" r="82" fill="#f7cf68" stroke="#151713" stroke-width="5"/>
+
+  <!-- cart illustration -->
+  <g filter="url(#tinyShadow)">
+    <rect x="218" y="330" width="150" height="91" rx="14" fill="url(#steel)" class="outline"/>
+    <rect x="230" y="345" width="126" height="24" rx="8" fill="#74878f" stroke="#151713" stroke-width="4"/>
+    <rect x="231" y="380" width="124" height="31" rx="8" fill="#b93127" stroke="#151713" stroke-width="4"/>
+    <text x="293" y="403" text-anchor="middle" class="dockText">HOT DOG</text>
+    <circle cx="248" cy="429" r="17" fill="#2b2b27" stroke="#151713" stroke-width="5"/>
+    <circle cx="338" cy="429" r="17" fill="#2b2b27" stroke="#151713" stroke-width="5"/>
+    <path d="M239 316 C235 300 246 299 241 284" class="steam" fill="none" stroke="#fff1c8" stroke-width="6" stroke-linecap="round"/>
+    <path d="M293 316 C289 300 300 299 295 284" class="steam" fill="none" stroke="#fff1c8" stroke-width="6" stroke-linecap="round"/>
+    <path d="M347 316 C343 300 354 299 349 284" class="steam" fill="none" stroke="#fff1c8" stroke-width="6" stroke-linecap="round"/>
+  </g>
+
+  <!-- side floating customers -->
+  <g filter="url(#tinyShadow)">
+    <circle cx="171" cy="394" r="28" fill="#ffc07a" class="outline"/>
+    <path d="M145 427 C153 410 188 410 197 427 L199 464 L143 464Z" fill="#5d8ce8" class="outline"/>
+    <circle cx="415" cy="395" r="26" fill="#ffd099" class="outline"/>
+    <path d="M392 427 C400 411 430 411 438 427 L441 461 L389 461Z" fill="#8e58c7" class="outline"/>
+  </g>
+
+  <!-- CTA -->
+  <g filter="url(#softShadow)">
+    <rect x="103" y="535" width="380" height="82" rx="41" fill="url(#orangeBtn)" stroke="#17130c" stroke-width="7"/>
+    <rect x="119" y="547" width="348" height="20" rx="10" fill="#fff" opacity=".23"/>
+    <text x="293" y="590" text-anchor="middle" class="label" font-size="34">▶ JUGAR</text>
+  </g>
+  <text x="293" y="643" text-anchor="middle" class="tiny">UN PULGAR · UN TURNO · UN IMPERIO</text>
+
+  <!-- top icon chips -->
+  <g filter="url(#tinyShadow)">
+    <circle cx="76" cy="72" r="27" fill="url(#buttonGreen)" class="outline"/>
+    <path d="M66 62 L86 62 M66 73 L86 73 M66 84 L86 84" class="thin" fill="none"/>
+    <circle cx="510" cy="72" r="27" fill="url(#buttonGray)" class="outline"/>
+    <path d="M499 62 L510 51 L521 62 L521 84 L499 84Z" fill="#f0f0e7" class="thin"/>
+  </g>
+
+  <!-- bottom dock -->
+  <g filter="url(#softShadow)">
+    <rect x="37" y="716" width="512" height="112" rx="56" fill="url(#dock)" stroke="#10120d" stroke-width="6"/>
+    <rect x="51" y="727" width="484" height="28" rx="14" fill="#fff" opacity=".07"/>
+  </g>
+
+  <!-- dock buttons -->
+  <g filter="url(#tinyShadow)">
+    <circle cx="103" cy="772" r="43" fill="url(#buttonGreen)" class="outline"/>
+    <rect x="82" y="754" width="42" height="31" rx="8" fill="#f2f0e7" class="thin"/>
+    <path d="M89 754 L97 739 L109 739 L117 754" fill="none" class="thin"/>
+    <rect x="83" y="802" width="41" height="22" rx="11" fill="#ffd34e" stroke="#17130c" stroke-width="4"/>
+    <text x="103" y="819" text-anchor="middle" class="price">🧰</text>
+
+    <circle cx="209" cy="772" r="43" fill="url(#buttonGreen)" class="outline"/>
+    <path d="M191 751 L227 751 L221 777 Q209 789 197 777Z" fill="#ffd14a" class="thin"/>
+    <path d="M188 756 C175 756 175 775 194 773 M230 756 C243 756 243 775 224 773" fill="none" class="thin"/>
+    <rect x="188" y="802" width="42" height="22" rx="11" fill="#ffd34e" stroke="#17130c" stroke-width="4"/>
+    <text x="209" y="819" text-anchor="middle" class="price">TOP</text>
+
+    <circle cx="315" cy="772" r="43" fill="url(#buttonGreen)" class="outline"/>
+    <circle cx="315" cy="757" r="13" fill="#ffd099" class="thin"/>
+    <path d="M296 790 C300 772 330 772 335 790Z" fill="#f2f0e7" class="thin"/>
+    <rect x="294" y="802" width="42" height="22" rx="11" fill="#ffd34e" stroke="#17130c" stroke-width="4"/>
+    <text x="315" y="819" text-anchor="middle" class="price">?</text>
+
+    <circle cx="421" cy="772" r="43" fill="url(#buttonGray)" class="outline"/>
+    <path d="M406 759 L418 759 L435 744 L435 800 L418 785 L406 785Z" fill="#f1f1e8" class="thin"/>
+    <path d="M445 755 C454 765 454 780 445 790 M456 748 C470 765 470 786 456 802" fill="none" class="thin"/>
+    <rect x="400" y="802" width="42" height="22" rx="11" fill="#bfc3c0" stroke="#17130c" stroke-width="4"/>
+    <text x="421" y="819" text-anchor="middle" class="price">SND</text>
+  </g>
+
+  <!-- glow bottom vignette -->
+  <rect y="848" width="586" height="52" fill="#0a0d08" opacity=".28"/>
+</svg>
