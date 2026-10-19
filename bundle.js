@@ -4,6 +4,7 @@ import { paintReferenceSidewalk, buildReferenceSidewalk } from './sidewalk-refer
 import { buildStreetCart, CART_POSITION } from './cart-model.js';
 import { createPrepView } from './prep-view.js';
 import { createCartCatalogView } from './cart-catalog-view.js';
+import { createGameplay } from './gameplay.js';
 import { applyPaintedStyle } from './painted-style.js';
 
 function clamp(v, min, max) {
@@ -626,6 +627,7 @@ class CalleDelHambrePhotogrammetricScene {
     const { mapHeight, cartHeight } = this._viewportLayout();
     this.camera = new THREE.PerspectiveCamera(36, window.innerWidth / Math.max(1, mapHeight), 0.5, 450);
     this.prepView = createPrepView();
+    this.gameplay = createGameplay({ prep: this.prepView, canvas: this.canvas });
     this.cartCamera = this.prepView.camera;
     // ?painted=1 → paint-over pipeline: hand-painted plates projected
     // screen-space onto the painted segments (env, cart, grill, tables).
@@ -1113,6 +1115,7 @@ class CalleDelHambrePhotogrammetricScene {
     const width = window.innerWidth;
     if (this.cartOnly) {
       this.prepView.update?.(dt);
+      this.gameplay?.update?.(dt);
       this.renderer.setViewport(0, 0, width, window.innerHeight);
       this.renderer.setScissor(0, 0, width, window.innerHeight);
       this.renderer.render(this.prepView.scene, this.cartCamera);

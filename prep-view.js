@@ -13,38 +13,6 @@ function roundedRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-function orderCardTexture() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 320;
-  canvas.height = 500;
-  const ctx = canvas.getContext('2d');
-  ctx.shadowColor = 'rgba(0,0,0,.34)';
-  ctx.shadowBlur = 18;
-  roundedRect(ctx, 18, 14, 284, 472, 34);
-  ctx.fillStyle = '#fff9ec';
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.font = '92px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('🍔', 160, 116);
-  ctx.strokeStyle = '#d8d0c3';
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.moveTo(45, 170);
-  ctx.lineTo(275, 170);
-  ctx.stroke();
-  const icons = ['🧀', '🥓', '🍅', '🧅', '🥬', '🥣'];
-  icons.forEach((icon, i) => {
-    const x = 76 + (i % 2) * 168;
-    const y = 230 + Math.floor(i / 2) * 92;
-    ctx.font = '58px sans-serif';
-    ctx.fillText(icon, x, y);
-  });
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
 function addBox(parent, name, w, h, d, x, y, z, material) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
   mesh.name = name;
@@ -128,7 +96,7 @@ function pileTexture(kind, colorHex) {
   return t;
 }
 
-function addIngredientTray(parent, x, z, w, items, mat) {
+function addIngredientTray(parent, x, z, w, items, mat, ing) {
   const dark = new THREE.MeshStandardMaterial({ color: 0x151a1e, roughness: 0.72 });
   const steel = new THREE.MeshStandardMaterial({ color: 0x68727a, metalness: 0.45, roughness: 0.4 });
   addBox(parent, 'Tray', w, 0.10, 0.58, x, 1.28, z, dark);
@@ -140,48 +108,33 @@ function addIngredientTray(parent, x, z, w, items, mat) {
     new THREE.MeshBasicMaterial({ map: pileTexture(kind, mat.color.getHex()), transparent: true })
   );
   quad.name = 'IngredientPile';
+  quad.userData.ing = ing;
   quad.rotation.x = -Math.PI / 2;
   quad.position.set(x, 1.385, z);
   parent.add(quad);
+  return quad;
 }
 
-function addSauceWell(parent, x, z, sauceMat) {
+function addSauceWell(parent, x, z, sauceMat, ing) {
   // standing squeeze bottle (like the reference: mustard + ketchup upright)
-  addCylinder(parent, 'BottleBody', 0.20, 0.24, 0.62, x, 1.62, z, sauceMat, 20);
+  const body = addCylinder(parent, 'BottleBody', 0.20, 0.24, 0.62, x, 1.62, z, sauceMat, 20);
+  body.userData.ing = ing;
   addCylinder(parent, 'BottleNeck', 0.075, 0.13, 0.16, x, 1.98, z, sauceMat, 14);
   addCylinder(parent, 'BottleTip', 0.028, 0.06, 0.12, x, 2.10, z, sauceMat, 10);
   const label = addBox(parent, 'BottleLabel', 0.30, 0.24, 0.03, x, 1.66, z + 0.21, new THREE.MeshStandardMaterial({ color: 0xfffdf6, roughness: 0.7 }));
   label.rotation.x = -0.06;
+  return body;
 }
 
+// The assembly board: just the board + an open bun — gameplay layers land on
+// top of it as the player drags ingredients in. Returns the board mesh (the
+// drop target) and the bun top Y so layers stack correctly.
 function addAssembledSandwich(parent, mats, dx = 0, dz = 0) {
-  addBox(parent, 'CuttingBoard', 1.30, 0.12, 1.15, dx, 1.36, 0.58 + dz, mats.board);
+  const board = addBox(parent, 'CuttingBoard', 1.30, 0.12, 1.15, dx, 1.36, 0.58 + dz, mats.board);
   const bread = addBox(parent, 'SandwichBread', 0.98, 0.13, 0.46, dx, 1.49, 0.58 + dz, mats.bread);
+  bread.name = 'AssemblyBun';
   bread.rotation.y = -0.08;
-  addBox(parent, 'CheeseLayer', 0.86, 0.055, 0.42, dx, 1.58, 0.58 + dz, mats.cheese).rotation.y = -0.08;
-  for (let i = 0; i < 5; i++) {
-    const leaf = addSphere(parent, 'Lettuce', 0.12, dx - 0.38 + i * 0.19, 1.63, 0.50 + dz + (i % 2) * 0.12, mats.lettuce, [1.35, 0.20, 0.72]);
-    leaf.rotation.y = i * 0.35;
-  }
-  for (let i = 0; i < 4; i++) {
-    const tomato = addCylinder(parent, 'TomatoSlice', 0.105, 0.105, 0.035, dx - 0.32 + i * 0.21, 1.67, 0.42 + dz, mats.tomato, 20);
-    tomato.rotation.x = Math.PI / 2;
-  }
-  for (let i = 0; i < 4; i++) {
-    addTorus(parent, 'OnionRing', 0.09, 0.025, dx - 0.30 + i * 0.21, 1.72, 0.71 + dz, mats.onion);
-  }
-  const sauceCurve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(dx - 0.44, 1.78, 0.58 + dz),
-    new THREE.Vector3(dx - 0.28, 1.82, 0.72 + dz),
-    new THREE.Vector3(dx - 0.09, 1.76, 0.45 + dz),
-    new THREE.Vector3(dx + 0.11, 1.82, 0.72 + dz),
-    new THREE.Vector3(dx + 0.30, 1.76, 0.45 + dz),
-    new THREE.Vector3(dx + 0.44, 1.80, 0.58 + dz),
-  ]);
-  const tube = new THREE.Mesh(new THREE.TubeGeometry(sauceCurve, 36, 0.035, 10), mats.sauceRed);
-  tube.name = 'SauceZigZag';
-  tube.castShadow = true;
-  parent.add(tube);
+  return { board, bun: bread, bunTopY: 1.49 + 0.065, cx: dx, cz: 0.58 + dz };
 }
 
 export function createPrepView() {
@@ -289,7 +242,8 @@ export function createPrepView() {
   const BACK_LANE_Z = -2.65;
   const ENTER_X = 6.0, LEAVE_X = -6.2;
   const queue = [];               // { api, patience, state, mood, t }
-  let spawnT = 0, serveT = 11, rosterIdx = 0;
+  let spawnT = 0, rosterIdx = 0;
+  const hooks = {};               // gameplay attaches frontReady/serve here
 
   // Route: arrive along the back lane, then cut forward into the slot.
   const routeToSlot = (from, s) => {
@@ -509,13 +463,26 @@ export function createPrepView() {
       spawnT = 3 + Math.random() * 3;
     }
 
-    serveT -= dt;
+    // When the front customer reaches the head of the line they place their
+    // order (speech bubble via the gameplay hook) and wait to be served.
+    // Their own patience (orderT) runs out → they storm off like anyone else.
     const front = queue.find(m => m.state === 'wait' && m.slot === 0);
-    if (front && !front.api.isWalking && serveT <= 0) {
-      front.state = 'served'; front.t = 1.4;
-      front.api.setMood('happy');
-      front.api.setIndicator('happy', 1);
-      serveT = 13 + Math.random() * 7;
+    if (front && !front.api.isWalking && !front.orderAsked) {
+      front.orderAsked = true;
+      front.orderT = 45;
+      hooks.frontReady?.(front);
+    }
+    if (front && front.orderAsked && front.orderT !== undefined) {
+      front.orderT -= dt;
+      if (front.orderT <= 0) {
+        hooks.orderExpired?.(front);
+        front.state = 'leaving';
+        front.orderAsked = false;
+        front.api.walkTo(routeOut(front.api.group.position), { speed: 2.1 });
+        front.api.setMood('angry');
+        front.api.setIndicator('angry', -1);
+        reflowQueue();
+      }
     }
 
     for (let i = queue.length - 1; i >= 0; i--) {
@@ -626,26 +593,23 @@ export function createPrepView() {
   }
   const lookTarget = new THREE.Vector3(-0.15, 1.55, 0.85); // the sandwich being built
 
-  const order = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.42, 2.22),
-    new THREE.MeshBasicMaterial({ map: orderCardTexture(), transparent: true })
-  );
-  order.name = 'OrderCard';
-  order.position.set(-1.75, 3.05, -1.84);
-  order.rotation.y = 0.08;
-  parts.ui.add(order);
-
   // Stainless work counter — compacted for portrait, reference layout:
   // grill left | board + bread center | trays 2x2 + sauce wells right.
   addBox(parts.cart, 'CounterDeck', 4.7, 0.16, 2.70, 0, 1.18, 0.12, mats.counter);
   addBox(parts.cart, 'CounterFront', 4.8, 1.08, 0.26, 0, 0.57, 1.53, mats.counterDark);
   addBox(parts.cart, 'CounterLip', 4.85, 0.12, 0.18, 0, 1.30, 1.44, mats.counterDark);
 
+  // Gameplay interaction registry — drag sources and the drop target get
+  // userData.ing so the gameplay layer can hit-test them in screen space.
+  const interact = { sources: [], board: null, assembly: null };
+
   // Grill plate with grate bars and 6 sausages (3x2).
   const grate = new THREE.MeshStandardMaterial({ color: 0x23262b, roughness: 0.6, metalness: 0.3 });
   const sausageMat = new THREE.MeshStandardMaterial({ color: 0xb84a22, roughness: 0.55 });
   // grill plate + grate bars paint as part of the cart (one plate, no seams)
-  addBox(parts.cart, 'GrillPlate', 1.30, 0.10, 1.75, -1.38, 1.30, 0.05, grate);
+  const grillPlate = addBox(parts.cart, 'GrillPlate', 1.30, 0.10, 1.75, -1.38, 1.30, 0.05, grate);
+  grillPlate.userData.ing = 'sausage';
+  interact.sources.push(grillPlate);
   for (let i = 0; i < 5; i++) addBox(parts.cart, 'GrateBar', 0.045, 0.035, 1.60, -1.88 + i * 0.25, 1.36, 0.05, mats.counterDark);
   for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) {
     const sau = addCylinder(parts.food, 'Sausage', 0.085, 0.085, 0.52, -1.84 + c * 0.50, 1.45, -0.50 + r * 0.62, sausageMat, 12);
@@ -653,7 +617,8 @@ export function createPrepView() {
   }
 
   // Assembly board + bread stock at center.
-  addAssembledSandwich(parts.food, mats, -0.15, 0.25);
+  interact.assembly = addAssembledSandwich(parts.food, mats, -0.15, 0.25);
+  interact.board = interact.assembly.board;
   addBox(parts.food, 'BreadTray', 1.30, 0.12, 0.62, -0.15, 1.36, -0.80, mats.counterDark);
   for (let i = 0; i < 4; i++) {
     const roll = addSphere(parts.food, 'BreadRoll', 0.19, -0.60 + i * 0.30, 1.51, -0.80, mats.bread, [0.72, 0.42, 1.65]);
@@ -661,12 +626,14 @@ export function createPrepView() {
   }
 
   // 2x2 topping trays right — fuller piles, like the reference.
-  addIngredientTray(parts.food, 0.95, -0.45, 0.72, [[-0.32,-0.28,'square'],[-0.08,0.05,'square'],[0.18,-0.20,'square'],[0.34,0.22,'square'],[-0.05,-0.35,'square'],[0.20,0.35,'square']], mats.cheese);
-  addIngredientTray(parts.food, 1.78, -0.45, 0.72, [[-0.32,-0.28,'ring'],[-0.08,0.05,'ring'],[0.18,-0.20,'ring'],[0.34,0.22,'ring'],[-0.05,-0.35,'ring'],[0.20,0.35,'ring']], mats.onion);
-  addIngredientTray(parts.food, 0.95, 0.42, 0.72, [[-0.32,-0.28,'leaf'],[-0.08,0.05,'leaf'],[0.18,-0.20,'leaf'],[0.34,0.22,'leaf'],[-0.05,-0.35,'leaf'],[0.20,0.35,'leaf']], mats.lettuce);
-  addIngredientTray(parts.food, 1.78, 0.42, 0.72, [[-0.32,-0.28,'slice'],[-0.08,0.05,'slice'],[0.18,-0.20,'slice'],[0.34,0.22,'slice'],[-0.05,-0.35,'slice'],[0.20,0.35,'slice']], mats.tomato);
-  addSauceWell(parts.food, 0.95, -1.05, mats.sauceRed);
-  addSauceWell(parts.food, 1.78, -1.05, mats.sauceYellow);
+  interact.sources.push(
+    addIngredientTray(parts.food, 0.95, -0.45, 0.72, [[-0.32,-0.28,'square'],[-0.08,0.05,'square'],[0.18,-0.20,'square'],[0.34,0.22,'square'],[-0.05,-0.35,'square'],[0.20,0.35,'square']], mats.cheese, 'cheese'),
+    addIngredientTray(parts.food, 1.78, -0.45, 0.72, [[-0.32,-0.28,'ring'],[-0.08,0.05,'ring'],[0.18,-0.20,'ring'],[0.34,0.22,'ring'],[-0.05,-0.35,'ring'],[0.20,0.35,'ring']], mats.onion, 'onion'),
+    addIngredientTray(parts.food, 0.95, 0.42, 0.72, [[-0.32,-0.28,'leaf'],[-0.08,0.05,'leaf'],[0.18,-0.20,'leaf'],[0.34,0.22,'leaf'],[-0.05,-0.35,'leaf'],[0.20,0.35,'leaf']], mats.lettuce, 'lettuce'),
+    addIngredientTray(parts.food, 1.78, 0.42, 0.72, [[-0.32,-0.28,'slice'],[-0.08,0.05,'slice'],[0.18,-0.20,'slice'],[0.34,0.22,'slice'],[-0.05,-0.35,'slice'],[0.20,0.35,'slice']], mats.tomato, 'tomato'),
+    addSauceWell(parts.food, 0.95, -1.05, mats.sauceRed, 'ketchup'),
+    addSauceWell(parts.food, 1.78, -1.05, mats.sauceYellow, 'mustard'),
+  );
 
   // Front controls / knobs under the grill.
   for (let i = 0; i < 3; i++) {
@@ -743,7 +710,7 @@ export function createPrepView() {
     camera,
     parts,
     get customers() { return queue.map(m => m.api); },
-    queue, peds, seats,
+    queue, peds, seats, interact, hooks, mats,
     elapsed: 0,
     update(dt) {
       this.elapsed += dt;
